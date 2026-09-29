@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>dp-spawacz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="toasts"></div>
+
+  <div id="tablet" class="hidden"></div>
+
+  <div id="game" class="hidden">
+    <div id="frame">
+      <canvas id="cv" width="1280" height="720"></canvas>
+      <div id="hud">
+        <div id="hud-top">
+          <div class="titles"><div id="stageName"></div><div id="stageSub"></div></div>
+          <div id="timer"></div>
+          <div class="prog"><i id="progress"></i></div>
+        </div>
+        <div id="hud-left" class="side"></div>
+        <div id="hud-right" class="side"></div>
+        <div id="hud-bottom"></div>
+        <div id="center-msg"></div>
+        <div id="setup" class="hidden"></div>
+        <div id="report" class="hidden"></div>
+        <div id="intro" class="hidden"></div>
+        <div id="confirm" class="hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/stages/setup.js"></script>
+  <script src="js/stages/prep.js"></script>
+  <script src="js/stages/drill.js"></script>
+  <script src="js/stages/tack.js"></script>
+  <script src="js/stages/weld.js"></script>
+  <script src="js/stages/finish.js"></script>
+  <script src="js/stages/report.js"></script>
+  <script src="js/tablet.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
