@@ -431,6 +431,8 @@ add({
     anchor = { fb = V(0.0, 0.2, -0.9) },
     lift = { 2, 2 }, pose = 'under', stand = { mode = 'under' },
     cam = { o = V(0.7, 0.0, -0.85), look = V(0, 0, 0), fov = 50 },
+    -- na ulicy auto stoi na ziemi: kamera nisko z boku, gracz leży obok
+    streetCam = { o = V(1.5, 0.3, 0.05), look = V(0, 0, 0), fov = 55 }, streetPose = 'creeper',
     cond = 'mech',
     F = {
         { t = 'connector', o = V(0.08, 0.28, 0.05) },
@@ -660,6 +662,8 @@ for _, p in ipairs(Parts.List) do
     local m = p.revin and Parts.Modes.revin or Parts.Modes.chop
     m[#m + 1] = p.id
 end
+-- szybka kradzież na ulicy (auto stoi na ziemi, bez podnośnika)
+Parts.Modes.street = { 'plate', 'wheel_lf', 'wheel_rf', 'wheel_lr', 'wheel_rr', 'catalyst' }
 
 -- kości, które klient sprawdza przy robieniu „zdjęcia” auta
 Parts.Bones = {}

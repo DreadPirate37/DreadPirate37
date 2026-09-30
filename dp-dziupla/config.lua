@@ -45,6 +45,7 @@ Config.Shops = {
             vec4(-551.6, -1693.9, 19.1, 210.0),
         },
         vinBay = vec4(-542.9, -1695.6, 19.1, 210.0),       -- stanowisko przebitki VIN i lakierni
+        tow = vec4(-538.4, -1706.2, 19.1, 300.0),          -- wypożyczenie lawety (spawn)
     },
     {
         key = 'sandy',
@@ -119,6 +120,7 @@ Config.Tools = {
     drill    = { label = 'Wiertarka (do wykrętaków)',   price = 650,  minLevel = 1, icon = 'drill' },
     grinder  = { label = 'Szlifierka kątowa',           price = 900,  minLevel = 2, icon = 'grinder' },
     wire     = { label = 'Struna do wycinania szyb',    price = 450,  minLevel = 2, icon = 'wire' },
+    jack     = { label = 'Lewarek (kradzież kół na ulicy)', price = 350, minLevel = 1, icon = 'jack' },
     impact   = { label = 'Klucz udarowy',               price = 2600, minLevel = 3, icon = 'impact' },
     hoist    = { label = 'Żuraw warsztatowy',           price = 4200, minLevel = 3, icon = 'hoist' },
     scanner  = { label = 'Skaner nadajników GPS',       price = 3200, minLevel = 4, icon = 'scanner' },
@@ -311,6 +313,25 @@ Config.StreetTargets = {
     },
 }
 
+-- Kradzież części z aut na ulicy (tylko auta ze skryptu): koła, katalizator, tablica
+Config.StreetStrip = {
+    enabled = true,
+    wheelTool = 'jack',            -- koła wymagają lewarka
+    alarmOnStart = true,           -- zamknięte auto może zawyć, gdy zaczniesz przy nim grzebać
+    noiseAlert = 0.5,              -- szansa na zgłoszenie = hałas × to (szlifierka na ulicy!)
+    idleEnd = 600,                 -- po tylu sekundach bez pracy auto wraca do normalnego stanu
+}
+
+-- Laweta: wciąganie aut ze skryptu bez odpalania (zamknięte też – ale może zawyć alarm)
+Config.Tow = {
+    enabled = true,
+    model = 'flatbed',
+    deposit = 750,
+    attach = vec3(0.0, -2.2, 1.1),  -- pozycja auta na platformie względem lawety
+    loadTime = 7000,
+    maxDist = 9.0,                  -- jak daleko za lawetą może stać auto
+}
+
 -- Nadajnik GPS w droższych autach: dopóki go nie znajdziesz i nie wyrwiesz, policja dostaje namiar
 Config.Tracker = {
     interval = 45,                 -- co ile sekund leci namiar do dispatchu
@@ -426,6 +447,7 @@ Config.Anim = {
     stand  = { dict = 'mini@repair', clip = 'fixing_a_ped' },
     kneel  = { dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@', clip = 'machinic_loop_mechandplayer' },
     under  = { dict = 'amb@prop_human_movie_bulb@base', clip = 'base' },
+    creeper = { dict = 'amb@world_human_vehicle_mechanic@male@base', clip = 'base' },
     inside = { dict = 'mini@repair', clip = 'fixing_a_player' },
     carry  = { dict = 'anim@heists@box_carry@', clip = 'idle' },
     laptop = { scenario = 'PROP_HUMAN_SEAT_COMPUTER' },

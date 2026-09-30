@@ -23,6 +23,7 @@ client_scripts {
     'client/chop.lua',
     'client/shop.lua',
     'client/street.lua',
+    'client/tow.lua',
 }
 
 server_scripts {

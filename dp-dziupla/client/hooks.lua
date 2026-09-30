@@ -20,7 +20,7 @@ function Hooks.Notify(msg, kind, time)
     SendNUIMessage({ action = 'toast', text = msg, kind = kind or 'info', time = time or 5000 })
 end
 
--- zgłoszenie na policję. kind: 'noise' | 'tracker' | 'alarm' | 'drop' | 'export' | 'dealer'
+-- zgłoszenie na policję. kind: 'noise' | 'tracker' | 'alarm' | 'drop' | 'export' | 'dealer' | 'strip'
 local Titles = {
     noise   = { code = '10-90', title = 'Hałas z warsztatu – możliwa dziupla', desc = 'Mieszkańcy zgłaszają szlifierki i klucze udarowe o dziwnej porze.' },
     tracker = { code = '10-16', title = 'Sygnał GPS skradzionego auta', desc = 'Nadajnik w skradzionym pojeździe nadaje pozycję.' },
@@ -28,6 +28,7 @@ local Titles = {
     drop    = { code = '10-66', title = 'Podejrzana wymiana części', desc = 'Świadek widział przekazywanie części samochodowych.' },
     export  = { code = '10-16', title = 'Podejrzany załadunek w porcie', desc = 'Auto ładowane do kontenera bez dokumentów.' },
     dealer  = { code = '10-16', title = 'Auto z przebitymi numerami', desc = 'Handlarz zgłasza auto z podrobionym VIN.' },
+    strip   = { code = '10-16', title = 'Kradzież części z auta', desc = 'Ktoś odkręca koła / tnie katalizator w zaparkowanym aucie.' },
 }
 
 function Hooks.Dispatch(kind, coords, data)

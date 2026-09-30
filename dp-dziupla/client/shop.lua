@@ -291,6 +291,31 @@ CreateThread(function()
                     end
                 end
             elseif not IsPedInAnyVehicle(ped, false) and not D.carrying then
+                -- auto z listy zsunięte z lawety / pchnięte na stanowisko – wstawiane z ziemi
+                for _, b in ipairs(s.bays) do
+                    if #(pc.xy - b.xy) < Config.Bay.radius + 2.5 then
+                        for _, v in ipairs(GetGamePool('CVehicle')) do
+                            local vs = Entity(v).state
+                            if vs.dpStolen and not vs.dpChop and not vs.dpTowed and #(GetEntityCoords(v).xy - b.xy) < Config.Bay.radius and #(pc - GetEntityCoords(v)) < 4.0 then
+                                sleep = 0
+                                D.Help(L('help_bay_foot'))
+                                if IsControlJustReleased(0, 38) then CreateThread(function() startBay(v, 'chopStart') end) end
+                            end
+                        end
+                    end
+                end
+                if s.tow and Config.Tow.enabled then
+                    local d = #(pc - s.tow.xyz)
+                    if d < 8.0 then
+                        sleep = 0
+                        DrawMarker(20, s.tow.x, s.tow.y, s.tow.z + 0.1, 0, 0, 0, 0, 0, 0, 0.3, 0.3, 0.25, 80, 170, 255, 150, true, true, 2, false, nil, nil, false)
+                        if d < 2.0 then
+                            local has = D.TowNet ~= nil
+                            D.Help(has and L('help_tow_return') or L('help_tow_rent', Config.Tow.deposit))
+                            if IsControlJustReleased(0, 38) then CreateThread(function() D.TowAction(has) end) end
+                        end
+                    end
+                end
                 local points = {
                     { v = s.laptop, r = 1.6, help = L('help_laptop'), fn = function() D.OpenLaptop() end },
                     { v = s.bench, r = 1.6, help = L('help_bench'), fn = function() openBench('bench') end },

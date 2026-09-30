@@ -214,6 +214,17 @@ else
     DZ.register('openStash', function() return { ok = false } end)
 end
 
+-- część zdjęta na ulicy: ox -> do kieszeni (albo stasha, gdy za ciężka), inaczej do magazynu
+function DZ.GiveStreetPart(src, p, item)
+    if OX then
+        item.u = nextUid(p)
+        if ox:CanCarryItem(src, I.partItem, 1, meta(item)) and ox:AddItem(src, I.partItem, 1, meta(item)) then return 'ekwipunku' end
+        item.u = nil
+    end
+    if DZ.WhAdd(p, item) then return 'magazynu' end
+    return nil
+end
+
 -- wszystkie materiały naraz (dla NUI demontażu)
 function DZ.ConsTable(src, p)
     local out = {}

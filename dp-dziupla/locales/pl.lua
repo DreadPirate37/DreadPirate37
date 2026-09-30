@@ -112,6 +112,20 @@ Locales = {
     not_revin_car     = 'To nie jest auto z twojej przebitki.',
     not_script_car    = 'Tego auta paser nie weźmie – bierzemy tylko auta z listy (zlecenia i cynki).',
     tip_bought        = 'Cynk kupiony: %s stoi gdzieś w zaznaczonym obszarze.',
+    help_strip        = '~INPUT_VEH_HEADLIGHT~ Kradnij części (koła, katalizator, tablica)',
+    strip_started     = 'Działaj szybko: koła (lewarek), katalizator (pod autem), tablica. Hałas ściąga policję.',
+    strip_part        = '%s zdjęte (stan %d%%) – schowane do %s.',
+    strip_noise       = 'Ktoś widział, jak tniesz auto – leci zgłoszenie!',
+    help_tow_rent     = '~INPUT_CONTEXT~ Wypożycz lawetę (kaucja %d$)',
+    help_tow_return   = '~INPUT_CONTEXT~ Oddaj lawetę',
+    help_tow_load     = '~INPUT_CONTEXT~ Wciągnij auto na lawetę',
+    help_tow_unload   = '~INPUT_CONTEXT~ Zsuń auto z lawety',
+    help_bay_foot     = '~INPUT_CONTEXT~ Wstaw to auto na stanowisko',
+    tow_rented        = 'Laweta czeka. Podjedź tyłem pod auto z listy i wciągnij je [E] przy platformie.',
+    tow_returned      = 'Laweta oddana, zwrot kaucji: %d$.',
+    tow_has           = 'Masz już wypożyczoną lawetę.',
+    tow_loaded        = 'Auto na platformie – wieź je do dziupli.',
+    tow_bad           = 'Tego auta nie wciągniesz.',
 }
 
 function L(key, ...)

@@ -9,9 +9,11 @@ local sess
 -- --------------------------------------------------------------------------
 --  Pozycjonowanie gracza i kamery
 -- --------------------------------------------------------------------------
-local function standPos(veh, def, loc)
+local function standPos(veh, def, loc, jobMode)
     local mn, mx = GetModelDimensions(GetEntityModel(veh))
     local st = def.stand or { mode = 'side' }
+    -- na ulicy auto stoi na ziemi – pod spód wchodzi się z boku
+    if jobMode == 'street' and st.mode == 'under' then st = { mode = 'side', s = -1 } end
     local x, y
     if st.mode == 'front' then
         x, y = loc.x * 0.6, mx.y + 0.55
@@ -28,8 +30,8 @@ local function standPos(veh, def, loc)
     return vector3(w.x, w.y, GetEntityCoords(PlayerPedId()).z)
 end
 
-local function poseAnim(def, lift)
-    local a = Config.Anim[Logic.Pose(def, lift)] or Config.Anim.stand
+local function poseAnim(def, lift, mode)
+    local a = Config.Anim[Logic.Pose(def, lift, mode)] or Config.Anim.stand
     D.PlayAnim(a, 1)
 end
 
@@ -198,17 +200,18 @@ function D.StartPart(veh, st, partId)
     end
     local loc = D.AnchorLocal(veh, def)
     local anchorW = D.PartWorld(veh, def, loc, vector3(0.0, 0.0, 0.0))
-    local stand = standPos(veh, def, loc)
+    local stand = standPos(veh, def, loc, st.mode)
     TaskGoStraightToCoord(ped, stand.x, stand.y, stand.z, 1.0, 2500, 0.0, 0.1)
     local t = GetGameTimer() + 2500
     while #(GetEntityCoords(ped).xy - stand.xy) > 0.4 and GetGameTimer() < t do Wait(50) end
     local pc = GetEntityCoords(ped)
     SetEntityHeading(ped, GetHeadingFromVector_2d(anchorW.x - pc.x, anchorW.y - pc.y))
-    poseAnim(def, st.lift or 0)
+    poseAnim(def, st.lift or 0, st.mode)
 
-    local cp = D.PartWorld(veh, def, loc, def.cam.o)
-    local look = D.PartWorld(veh, def, loc, def.cam.look or vector3(0.0, 0.0, 0.0))
-    local cam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', cp.x, cp.y, cp.z, 0.0, 0.0, 0.0, def.cam.fov or 45.0, false, 0)
+    local cd = (st.mode == 'street' and def.streetCam) or def.cam
+    local cp = D.PartWorld(veh, def, loc, cd.o)
+    local look = D.PartWorld(veh, def, loc, cd.look or vector3(0.0, 0.0, 0.0))
+    local cam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', cp.x, cp.y, cp.z, 0.0, 0.0, 0.0, cd.fov or 45.0, false, 0)
     PointCamAtCoord(cam, look.x, look.y, look.z)
     SetCamActive(cam, true)
     RenderScriptCams(true, true, 700, true, true)

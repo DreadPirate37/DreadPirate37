@@ -7,6 +7,7 @@ local ByNet = {}      -- [netId] = jobId
 local Sessions = {}   -- [src] = { kind, token, ... }
 local Carry = {}      -- [src] = przedmiot niesiony na regał
 local jobSeq = 0
+local Stripped = {}   -- [netId] = { [partId] = true } – części już zdjęte na ulicy
 
 local S = Config.Security
 
@@ -85,6 +86,8 @@ local function endJob(job, deleteVeh, keepFrozen)
         Entity(job.veh).state:set('dpChop', nil, true)
         if deleteVeh then
             DeleteEntity(job.veh)
+        elseif job.mode == 'street' then
+            FreezeEntityPosition(job.veh, false)   -- stoi, gdzie stał; zamki bez zmian
         elseif not keepFrozen then
             SetEntityCoords(job.veh, job.base.x, job.base.y, job.base.z, false, false, false, false)
             FreezeEntityPosition(job.veh, false)
@@ -145,6 +148,8 @@ local function startJob(src, netId, rawSnap, mode)
     if Sessions[src] then return { ok = false, msg = L('busy') } end
     local veh = vehFromNet(netId)
     if not veh then return { ok = false, msg = L('chop_not_vehicle') } end
+    local prev = ByNet[netId] and Jobs[ByNet[netId]]
+    if prev and prev.mode == 'street' then endJob(prev, false) end
     if ByNet[netId] then return { ok = false, msg = L('chop_already') } end
     if occupied(veh) then return { ok = false, msg = L('chop_occupied') } end
     local p = DZ.Profile(src)
@@ -187,6 +192,7 @@ local function startJob(src, netId, rawSnap, mode)
     }
     for _, id in ipairs(Logic.BuildParts(mode, snap)) do
         local def = Parts.ById[id]
+        if Stripped[netId] and Stripped[netId][id] then goto skip end
         local base = Logic.BaseCond(def, snap) * 100 + math.random(-6, 6) + (fx.eye and 4 or 0)
         job.parts[id] = {
             s = 'on',
@@ -194,6 +200,7 @@ local function startJob(src, netId, rawSnap, mode)
             m = classMult * Logic.ModMult(def, snap),
             done = {},
         }
+        ::skip::
     end
     if mode == 'revin' then
         local chars = 'ABCDEFGHJKLMNPRSTUVWXYZ0123456789'
@@ -236,6 +243,45 @@ DZ.register('chopCancel', function(src, jobId)
     end
     endJob(job, false)
     return { ok = true, msg = L('chop_cancelled') }
+end)
+
+-- --------------------------------------------------------------------------
+--  Kradzież części na ulicy (auto ze skryptu stoi tam, gdzie stoi)
+-- --------------------------------------------------------------------------
+DZ.register('streetStrip', function(src, netId, rawSnap)
+    if not Config.StreetStrip.enabled or not DZ.HasAccess(src) then return { ok = false, msg = L('no_access') } end
+    if Sessions[src] then return { ok = false, msg = L('busy') } end
+    local veh = vehFromNet(netId)
+    if not veh or not DZ.IsScriptVehicle(veh) then return { ok = false, msg = L('not_script_car') } end
+    if ByNet[netId] then return { ok = false, msg = L('chop_already') } end
+    if occupied(veh) then return { ok = false, msg = L('chop_occupied') } end
+    if not nearEntity(src, veh, 5.0) then return { ok = false, msg = L('too_far') } end
+    local snap = snapSanitize(rawSnap, veh)
+    if not snap then return { ok = false, msg = L('suspicious') } end
+    local p = DZ.Profile(src)
+    local fx = DZ.Fx(p)
+    local classMult = Logic.ClassMult(snap)
+    local vc = GetEntityCoords(veh)
+    jobSeq = jobSeq + 1
+    local job = {
+        id = jobSeq, mode = 'street', net = netId, veh = veh, owner = src, started = os.time(), touched = os.time(),
+        snap = snap, label = snap.label, plate = trimPlate(GetVehicleNumberPlateText(veh)),
+        parts = {}, flags = {}, lift = 0, base = vc, heading = GetEntityHeading(veh), stampQ = {},
+    }
+    for _, id in ipairs(Logic.BuildParts('street', snap)) do
+        if not (Stripped[netId] and Stripped[netId][id]) then
+            local def = Parts.ById[id]
+            local base = Logic.BaseCond(def, snap) * 100 + math.random(-6, 6) + (fx.eye and 4 or 0)
+            job.parts[id] = { s = 'on', c = math.floor(math.max(5, math.min(100, base))), m = classMult * Logic.ModMult(def, snap), done = {} }
+        end
+    end
+    if not next(job.parts) then return { ok = false, msg = L('part_done') } end
+    Jobs[job.id] = job
+    ByNet[netId] = job.id
+    FreezeEntityPosition(veh, true)
+    publish(job)
+    local alarm = Config.StreetStrip.alarmOnStart and DZ.TargetAlarm and DZ.TargetAlarm(src, netId) or false
+    return { ok = true, id = job.id, alarm = alarm, plate = job.plate, msg = L('strip_started') }
 end)
 
 -- --------------------------------------------------------------------------
@@ -291,6 +337,10 @@ DZ.register('partBegin', function(src, jobId, partId)
     if #miss > 0 then return { ok = false, msg = L('part_blocked', table.concat(miss, ', ')) } end
     local p = DZ.Profile(src)
     if def.tool and not DZ.HasTool(p, def.tool) then return { ok = false, msg = L('part_tool', Config.Tools[def.tool].label) } end
+    local wt = Config.StreetStrip.wheelTool
+    if job.mode == 'street' and def.type == 'wheel' and wt and not DZ.HasTool(p, wt) then
+        return { ok = false, msg = L('part_tool', Config.Tools[wt].label) }
+    end
     if not def.op and DZ.WhFree(p) <= 0 then return { ok = false, msg = L('warehouse_full') } end
     if def.shell then
         for _, other in pairs(job.parts) do
@@ -327,7 +377,7 @@ DZ.register('partBegin', function(src, jobId, partId)
         },
         ctx = {
             tools = DZ.OwnedTools(p), cons = DZ.ConsTable(src, p), fx = fx, sockets = Parts.Sockets, bits = Parts.Bits,
-            vehicle = job.label, lift = job.lift,
+            vehicle = job.label, lift = job.lift, mode = job.mode,
         },
     }
 end)
@@ -410,7 +460,15 @@ DZ.register('partFinish', function(src, token, report)
     cond = math.floor(math.max(1, math.min(100, cond)))
     pt.c = cond
 
-    DZ.AddNoise(src, job.shop, DZ.num(report.noise, 0, 20), p)
+    if job.mode == 'street' then
+        local chance = DZ.num(report.noise, 0, 20) * Config.StreetStrip.noiseAlert * DZ.Fx(p).quiet
+        if math.random() < chance then
+            Bridge.Notify(src, L('strip_noise'), 'bad')
+            TriggerClientEvent('dp-dziupla:client:dispatch', src, 'strip', GetEntityCoords(job.veh), { plate = job.plate, model = job.label })
+        end
+    else
+        DZ.AddNoise(src, job.shop, DZ.num(report.noise, 0, 20), p)
+    end
 
     local res = { ok = true, cond = cond, label = def.label }
     local tdef = def.type and Parts.Types[def.type]
@@ -457,7 +515,15 @@ DZ.register('partFinish', function(src, token, report)
         res.value = value
         res.msg = L('part_removed', def.label, cond, value)
         p.stats.parts = p.stats.parts + 1
-        if tdef.heavy then
+        if job.mode == 'street' then
+            Stripped[job.net] = Stripped[job.net] or {}
+            Stripped[job.net][s.partId] = true
+            local where = DZ.GiveStreetPart(src, p, item)
+            res.msg = where and L('strip_part', def.label, cond, where) or L('warehouse_full')
+            local left = false
+            for _, pp in pairs(job.parts) do if pp.s ~= 'done' then left = true end end
+            if not left then SetTimeout(1000, function() endJob(job, false, true) end) end
+        elseif tdef.heavy then
             DZ.WhAdd(p, item)
             res.heavy = true
             res.msg = res.msg .. ' ' .. L('heavy_stored', tdef.label)
@@ -694,8 +760,9 @@ CreateThread(function()
         for _, job in pairs(Jobs) do
             if not DoesEntityExist(job.veh) then
                 endJob(job, false)
-            elseif now - job.touched > Config.Bay.maxJobAge then
-                endJob(job, false)
+            elseif now - job.touched > Config.Bay.maxJobAge
+                or (job.mode == 'street' and now - job.touched > Config.StreetStrip.idleEnd and not next(Sessions)) then
+                endJob(job, false, job.mode == 'street')
             end
         end
     end

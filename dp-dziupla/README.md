@@ -103,6 +103,19 @@ trzyma na mapie kilka zamkniętych aut (`Config.StreetTargets`: ile, jakie pozio
 znaleźć samemu albo kupić w ChopNecie **cynk** – przybliżony obszar na mapie. Każde takie auto może mieć alarm
 i nadajnik GPS, a wytrych działa tylko na nich. Auta z garaży graczy są dodatkowo blokowane (`server/hooks.lua`).
 
+### Kradzież części na ulicy (jak w Thief Simulator)
+Przy aucie z listy stojącym na mieście wciśnij **H**. Auto zostaje na miejscu, a ty zdejmujesz z niego to,
+co się da zdjąć szybko: **koła** (wymaga lewarka), **katalizator** (leżysz pod autem, szlifierka albo klucz)
+i **tablicę**. Mechanika jest ta sama co w dziupli: nasadki, rdza, cięcie. Części lądują w ekwipunku
+(ox_inventory) albo w magazynie. Zamknięte auto może zawyć alarmem, a hałas szlifierki na ulicy może
+ściągnąć zgłoszenie. Zdjętych części nie da się potem zdjąć drugi raz w dziupli.
+
+### Laweta
+W dziupli (punkt `tow`) wypożyczasz lawetę za kaucję. Podjeżdżasz tyłem pod auto z listy, stajesz za
+platformą i **E** wciąga auto. Nie trzeba go otwierać, ale zamknięte może włączyć alarm, a nadajnik GPS
+dalej nadaje. W dziupli zsuwasz auto (**E** za platformą) prosto na stanowisko i wstawiasz je **E** z ziemi.
+Lawetę oddajesz w tym samym punkcie; zwrot kaucji zależy od stanu lawety.
+
 ### Zamówienia klientów
 Klient chce np. „4× Koło min. 60% + Fotel min. 45%”. Po przyjęciu części są rezerwowane w magazynie,
 a ty wieziesz paczkę do punktu odbioru. Płacą 1,5–1,9× tyle co paser. Przy odbiorze może kręcić się policja.

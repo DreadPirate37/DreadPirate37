@@ -140,6 +140,15 @@ local function forgetTarget(net, deleteVeh)
     return rec
 end
 
+-- rzut na alarm przy grzebaniu w zamkniętym aucie (kradzież części na ulicy, laweta)
+function DZ.TargetAlarm(src, net)
+    local rec = Targets[net]
+    if not rec or not rec.locked then return false end
+    return math.random() < rec.alarm * (1 - 0.35 * DZ.Fx(DZ.Profile(src)).thief)
+end
+
+function DZ.Target(net) return Targets[net] end
+
 function DZ.IsScriptVehicle(veh)
     return Entity(veh).state.dpStolen == true
 end
@@ -762,6 +771,10 @@ CreateThread(function()
 end)
 
 DZ.OnDrop[#DZ.OnDrop + 1] = function(src)
+    local t = Tows[src]
+    local tv = t and vehFromNet(t.net)
+    if tv then DeleteEntity(tv) end
+    Tows[src] = nil
     clearContract(src, true)
     releaseOrder(src)
     Offers[src], OOffers[src], EOffers[src], EActive[src], Sess[src] = nil, nil, nil, nil, nil

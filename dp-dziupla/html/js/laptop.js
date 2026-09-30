@@ -317,6 +317,7 @@
     toolDesc(k) {
       return {
         pliers: 'Szybkie i bezpieczne zdejmowanie opasek z węży.',
+        jack: 'Kradzież kół prosto z zaparkowanych aut na ulicy.',
         drill: 'Wykręcanie ukręconych i zaokrąglonych śrub (zużywa wykrętaki).',
         grinder: 'Cięcie zapieczonych śrub, wydechu i karoserii. Głośna! Zużywa tarcze.',
         wire: 'Wycinanie szyb czołowych i tylnych w całości.',

@@ -132,14 +132,15 @@ function Logic.Blockers(def, job, snap)
         end
     end
     local lift = job.lift or 0
-    if def.lift and (lift < def.lift[1] or lift > def.lift[2]) then
+    if job.mode ~= 'street' and def.lift and (lift < def.lift[1] or lift > def.lift[2]) then
         local want = def.lift[1]
         miss[#miss + 1] = want == 0 and 'Opuść podnośnik' or ('Podnośnik na poziom ' .. want)
     end
     return miss
 end
 
-function Logic.Pose(def, lift)
+function Logic.Pose(def, lift, mode)
+    if mode == 'street' and def.streetPose then return def.streetPose end
     local p = def.pose
     if type(p) == 'table' then return p[lift] or p[1] or 'stand' end
     return p or 'stand'

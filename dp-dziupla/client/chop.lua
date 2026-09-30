@@ -24,15 +24,13 @@ end
 CreateThread(function()
     while true do
         local found = {}
-        if D.shop then
-            local pc = GetEntityCoords(PlayerPedId())
-            for _, veh in ipairs(GetGamePool('CVehicle')) do
-                if #(GetEntityCoords(veh) - pc) < 30.0 then
-                    local st = Entity(veh).state.dpChop
-                    if st then
-                        found[#found + 1] = veh
-                        D.ApplyVisuals(veh, st)
-                    end
+        local pc = GetEntityCoords(PlayerPedId())
+        for _, veh in ipairs(GetGamePool('CVehicle')) do
+            if #(GetEntityCoords(veh) - pc) < 30.0 then
+                local st = Entity(veh).state.dpChop
+                if st then
+                    found[#found + 1] = veh
+                    D.ApplyVisuals(veh, st)
                 end
             end
         end

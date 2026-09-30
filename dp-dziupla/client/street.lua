@@ -234,12 +234,18 @@ CreateThread(function()
                             end
                         elseif cur == 0 then
                             local dist = #(pc - GetEntityCoords(veh))
+                            -- kradzież części na miejscu (H), gdy auto nie jest jeszcze „rozgrzebane”
+                            if Config.StreetStrip.enabled and dist < 3.2 and not Entity(veh).state.dpChop and not Entity(veh).state.dpTowed then
+                                sleep = 0
+                                if not st.locked then D.Help(L('help_strip')) end
+                                if IsControlJustReleased(0, 74) then CreateThread(function() D.StartStrip(veh, net) end) end
+                            end
                             if st.locked then
                                 local bi = GetEntityBoneIndexByName(veh, 'door_dside_f')
                                 local door = bi ~= -1 and GetWorldPositionOfEntityBone(veh, bi) or GetEntityCoords(veh)
                                 if #(pc - door) < 1.8 then
                                     sleep = 0
-                                    D.Help(L('help_lockpick'))
+                                    D.Help(L('help_lockpick') .. '~n~' .. L('help_strip'))
                                     if IsControlJustReleased(0, 38) then CreateThread(function() doLockpick(veh, net) end) end
                                     if IsControlJustReleased(0, 47) then CreateThread(function() doSmash(veh, net) end) end
                                 end
@@ -256,6 +262,17 @@ CreateThread(function()
         Wait(sleep)
     end
 end)
+
+-- kradzież części na ulicy: tworzy lekkie „stanowisko” w miejscu auta
+function D.StartStrip(veh, net)
+    if D.busy or D.carrying then return end
+    D.busy = true
+    local r = D.Callback('streetStrip', net, D.Snapshot(veh))
+    D.busy = false
+    if not r or not r.ok then return D.Notify(r and r.msg or L('error'), 'bad') end
+    D.Notify(r.msg, 'warn', 8000)
+    if r.alarm then alarm(veh, r.plate) end
+end
 
 -- cynk kupiony w ChopNecie: obszar na mapie na 10 minut
 local tipBlips = {}
