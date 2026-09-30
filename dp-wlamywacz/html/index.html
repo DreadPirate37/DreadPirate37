@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>dp-wlamywacz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Caveat:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- HUD włamania (UIX-01) -->
+  <div id="hud" class="hud" hidden>
+    <div class="hud-head">
+      <span id="hud-house" class="hud-house"></span>
+      <span id="hud-room" class="hud-room"></span>
+    </div>
+    <div class="hud-row"><span class="lbl">Hałas</span><span class="meter noise"><i id="hud-noise"></i></span></div>
+    <div class="hud-row"><span class="lbl">Widać cię</span><span class="meter vis"><i id="hud-vis"></i></span></div>
+    <div class="hud-row" id="hud-cam-row" hidden><span class="lbl">Kamera</span><span class="meter cam"><i id="hud-cam"></i></span></div>
+    <div class="hud-chips">
+      <span id="hud-alert" class="chip calm">spokój</span>
+      <span id="hud-alarm" class="chip alarm" hidden></span>
+      <span id="hud-police" class="chip bad" hidden></span>
+      <span id="hud-calling" class="chip bad" hidden>dzwoni na policję!</span>
+    </div>
+    <div class="hud-row small"><span class="lbl">Torba</span><b id="hud-bag">0 / 6 kg</b><span id="hud-carry" class="carry" hidden></span></div>
+    <div class="hud-tools">
+      <span id="t-gloves" class="tool" title="Rękawiczki">RĘK</span>
+      <span id="t-mask" class="tool" title="Maska">MASKA</span>
+      <span id="t-light" class="tool" title="Latarka">LATARKA</span>
+      <span id="hud-hidden" class="chip calm" hidden>ukryty</span>
+      <span class="meter breath" id="hud-breath-wrap" hidden><i id="hud-breath"></i></span>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+  <div id="signal" class="signal" hidden></div>
+  <div id="progress" class="progress" hidden><div class="p-label" id="p-label"></div><div class="p-bar"><i id="p-fill"></i></div><div class="p-hint">X – przerwij</div></div>
+
+  <!-- lornetka (REK-01) -->
+  <div id="bino" class="bino" hidden>
+    <div class="bino-mask"></div>
+    <div class="bino-reticle"></div>
+    <div class="bino-info"><b id="bino-target">—</b><span id="bino-zoom"></span><div class="bino-prog"><i id="bino-prog"></i></div><div id="bino-rating" class="bino-rating"></div></div>
+    <div class="bino-help">kółko: zoom · E: oznacz dla ekipy · PPM / Backspace: wyjdź</div>
+  </div>
+
+  <!-- minigry (UIX-08) -->
+  <div id="game" class="game" hidden>
+    <div class="game-box">
+      <div class="game-head"><b id="game-title"></b><span id="game-sub"></span></div>
+      <div class="game-stage"><canvas id="game-cv" width="800" height="600" tabindex="0"></canvas><div id="game-warn" class="game-warn"></div></div>
+      <div class="game-help" id="game-help"></div>
+    </div>
+  </div>
+
+  <!-- okna: laptop, paser, dialog, dowody -->
+  <div id="window" class="window" hidden></div>
+
+  <!-- raport po włamaniu (UIX-14) -->
+  <div id="report" class="report" hidden></div>
+
+  <!-- tryb podglądu w przeglądarce (UIX-09) -->
+  <div id="demo" class="demo" hidden></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/windows.js"></script>
+  <script src="js/games/host.js"></script>
+  <script src="js/games/lockpick.js"></script>
+  <script src="js/games/rake.js"></script>
+  <script src="js/games/shim.js"></script>
+  <script src="js/games/pry.js"></script>
+  <script src="js/games/glass.js"></script>
+  <script src="js/games/keypad.js"></script>
+  <script src="js/games/safe.js"></script>
+  <script src="js/games/fuse.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
