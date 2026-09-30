@@ -1,0 +1,274 @@
+/* ==========================================================================
+   DP Mechanic – HUD jazdy (N2O, kontrolki, temperatura, odometr)
+   Prefiks .dr-  |  animacje wyłącznie transform / opacity, bez backdrop-filter
+   ========================================================================== */
+#app > #m-drive { pointer-events: none; }
+.dr-root { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+.dr-root * { pointer-events: none; }
+
+.dr-hud {
+    position: absolute; right: 28px; bottom: 26px;
+    display: flex; align-items: flex-end; gap: 12px;
+    transform-origin: bottom right;
+}
+@media (max-height: 820px) { .dr-hud { transform: scale(0.88); } }
+@media (max-height: 660px) { .dr-hud { transform: scale(0.78); } }
+
+/* wspólny wygląd paneli */
+.dr-dash, .dr-nos {
+    position: relative;
+    background: linear-gradient(180deg, rgba(20, 26, 35, 0.9), rgba(9, 12, 17, 0.93));
+    border: 1px solid var(--line-2);
+    border-radius: 16px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.38s var(--ease), opacity 0.3s ease;
+    will-change: transform, opacity;
+}
+.dr-dash::before, .dr-nos::before {
+    content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+}
+.dr-off { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.97); }
+
+@keyframes dr-blink { 0%, 55% { opacity: 1; } 75%, 100% { opacity: 0.22; } }
+@keyframes dr-spin { to { transform: rotate(360deg); } }
+@keyframes dr-flicker { 0% { opacity: 0.78; } 50% { opacity: 1; } 100% { opacity: 0.84; } }
+@keyframes dr-kick { 0% { transform: scale(1); } 40% { transform: scale(1.025); } 100% { transform: scale(1); } }
+@keyframes dr-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes dr-lamp-in { 0% { transform: scale(0.55); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+
+/* ==========================================================================
+   DESKA – kontrolki, temperatura, odometr
+   ========================================================================== */
+.dr-dash { width: 296px; padding: 11px 13px 12px; }
+
+.dr-dash-top { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.dr-lamps { display: flex; flex-wrap: wrap; gap: 6px; max-width: 186px; }
+.dr-lamp {
+    position: relative; width: 30px; height: 30px; border-radius: 9px;
+    display: grid; place-items: center;
+    background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line);
+    color: var(--warn);
+    opacity: 0; transform: scale(0.55);
+    transition: transform 0.28s var(--ease), opacity 0.22s ease;
+}
+.dr-lamp.in { opacity: 1; transform: none; animation: dr-lamp-in 0.42s var(--ease); }
+.dr-lamp.out { opacity: 0; transform: scale(0.55); animation: none; }
+.dr-lamp.warn { color: var(--warn); background: var(--warn-soft); border-color: rgba(245, 185, 66, 0.35); }
+.dr-lamp.err { color: #ff5d68; background: var(--err-soft); border-color: rgba(239, 79, 90, 0.5); }
+.dr-lamp::after {
+    content: ''; position: absolute; inset: -6px; border-radius: 14px;
+    background: radial-gradient(circle, rgba(245, 185, 66, 0.28), transparent 65%);
+    opacity: 0.8;
+}
+.dr-lamp.err::after { background: radial-gradient(circle, rgba(239, 79, 90, 0.38), transparent 65%); }
+.dr-lamp .ico { position: relative; z-index: 1; }
+.dr-lamp.err .ico { animation: dr-blink 1.1s ease-in-out infinite; }
+
+.dr-allok { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.dr-okdot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+.dr-badges { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.dr-badge {
+    display: inline-flex; align-items: center; gap: 5px; height: 21px; padding: 0 8px; border-radius: 6px;
+    font: 800 9.5px var(--font); letter-spacing: 0.12em;
+}
+.dr-svc { color: var(--warn); background: var(--warn-soft); border: 1px solid rgba(245, 185, 66, 0.35); }
+.dr-insp { color: #ff6f78; background: var(--err-soft); border: 1px solid rgba(239, 79, 90, 0.4); }
+.dr-insp .ico { animation: dr-pulse 1.8s ease-in-out infinite; }
+
+/* komunikat nowej kontrolki – dymek nad panelem */
+.dr-ticker {
+    position: absolute; right: 0; bottom: calc(100% + 8px); max-width: 320px;
+    display: flex; justify-content: flex-end;
+    opacity: 0; transform: translate3d(0, 8px, 0);
+    transition: transform 0.35s var(--ease), opacity 0.3s ease;
+}
+.dr-ticker.in { opacity: 1; transform: none; }
+.dr-ticker-text {
+    display: block; padding: 7px 12px; border-radius: 10px;
+    font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+    background: rgba(12, 15, 20, 0.95); border: 1px solid var(--line-2); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+.dr-ticker.warn .dr-ticker-text { color: #ffd479; border-color: rgba(245, 185, 66, 0.4); }
+.dr-ticker.err .dr-ticker-text { color: #ff8b93; border-color: rgba(239, 79, 90, 0.5); }
+
+/* temperatura silnika */
+.dr-temp { display: flex; align-items: center; gap: 7px; margin-top: 11px; }
+.dr-temp-ico { display: grid; place-items: center; color: var(--text-2); width: 18px; }
+.dr-temp.cold .dr-temp-ico { color: var(--info); }
+.dr-temp.hot .dr-temp-ico { color: var(--err); animation: dr-blink 0.9s ease-in-out infinite; }
+.dr-temp-mark { font: 800 9.5px var(--font); color: var(--muted); letter-spacing: 0.06em; }
+.dr-temp-track {
+    position: relative; width: 118px; height: 6px; border-radius: 6px; flex: none;
+    background: linear-gradient(90deg, rgba(59, 158, 255, 0.55) 0%, rgba(47, 210, 122, 0.5) 32%, rgba(47, 210, 122, 0.5) 68%, rgba(245, 185, 66, 0.7) 80%, rgba(239, 79, 90, 0.9) 100%);
+}
+.dr-temp-fill {
+    position: absolute; inset: 0; border-radius: 6px; background: rgba(255, 255, 255, 0.22);
+    transform-origin: left center; transform: scaleX(0); transition: transform 0.6s var(--ease);
+}
+.dr-temp-needle {
+    position: absolute; left: -1.5px; top: -4px; width: 3px; height: 14px; border-radius: 2px;
+    background: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.65);
+    transition: transform 0.6s var(--ease);
+}
+.dr-temp.hot .dr-temp-needle { background: #ff5d68; box-shadow: 0 0 10px rgba(239, 79, 90, 0.9); }
+.dr-temp-val { margin-left: auto; min-width: 46px; text-align: right; font-size: 12px; font-weight: 700; color: var(--text-2); }
+.dr-temp.hot .dr-temp-val { color: var(--err); animation: dr-blink 0.9s ease-in-out infinite; }
+.dr-temp.cold .dr-temp-val { color: var(--info); }
+
+/* odometr bębnowy */
+.dr-odo { display: flex; align-items: center; gap: 8px; margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); }
+.dr-drums {
+    display: flex; align-items: center; gap: 2px; padding: 3px;
+    background: #05070a; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.85);
+}
+.dr-drum {
+    position: relative; width: 15px; height: 22px; overflow: hidden; border-radius: 3px;
+    background: linear-gradient(180deg, #1b222c, #0e1218 45%, #0e1218 55%, #1b222c);
+}
+.dr-drum::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), transparent 32%, transparent 68%, rgba(0, 0, 0, 0.62));
+}
+.dr-strip { display: flex; flex-direction: column; will-change: transform; }
+.dr-strip span { display: block; height: 22px; line-height: 22px; text-align: center; font: 700 14px var(--mono); color: #eef2f6; }
+.dr-tenth { background: linear-gradient(180deg, #cfd5dd, #ffffff 50%, #cfd5dd); }
+.dr-tenth::after { background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 32%, transparent 68%, rgba(0, 0, 0, 0.35)); }
+.dr-tenth .dr-strip span { color: #14181e; }
+.dr-dot { width: 3px; height: 3px; border-radius: 50%; background: #8b95a3; align-self: flex-end; margin: 0 1px 4px; }
+.dr-odo-unit { font: 800 10px var(--font); color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; }
+.dr-trip { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.dr-trip span { font: 800 8.5px var(--font); letter-spacing: 0.18em; color: var(--muted); }
+.dr-trip b { font-size: 14px; font-weight: 700; color: var(--accent-2); }
+
+/* sekcje wyłączone configiem */
+.dr-dash.no-dash .dr-dash-top, .dr-dash.no-dash .dr-temp, .dr-dash.no-dash .dr-ticker { display: none; }
+.dr-dash.no-dash .dr-odo { margin-top: 0; padding-top: 0; border-top: 0; }
+.dr-dash.no-odo .dr-odo { display: none; }
+
+/* ==========================================================================
+   N2O
+   ========================================================================== */
+.dr-nos { width: 276px; padding: 10px 12px 11px; }
+.dr-nos.dr-armed { border-color: rgba(255, 122, 26, 0.38); }
+.dr-nos.dr-kick { animation: dr-kick 0.32s var(--ease); }
+
+.dr-nos-glow {
+    position: absolute; inset: -1px; border-radius: inherit;
+    box-shadow: 0 0 0 1px rgba(111, 240, 255, 0.6), 0 0 30px rgba(59, 158, 255, 0.5), inset 0 0 24px rgba(59, 158, 255, 0.2);
+    opacity: 0; transition: opacity 0.25s ease;
+}
+.dr-nos.dr-active .dr-nos-glow { opacity: 1; animation: dr-flicker 0.16s linear infinite alternate; }
+.dr-nos.dr-purging .dr-nos-glow { opacity: 0.5; }
+
+.dr-nos-head { position: relative; display: flex; align-items: center; gap: 8px; }
+.dr-nos-title { font: 900 15px var(--font); letter-spacing: 0.02em; color: #7fe9ff; text-shadow: 0 0 12px rgba(59, 158, 255, 0.55); }
+.dr-nos-title sub { font-size: 9px; vertical-align: -2px; }
+.dr-nos-kit { flex: 1; min-width: 0; font-size: 10.5px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-nos-state {
+    font: 800 9px var(--font); letter-spacing: 0.14em; padding: 3px 7px; border-radius: 5px;
+    background: rgba(255, 255, 255, 0.05); color: var(--muted); border: 1px solid var(--line);
+}
+.dr-armed .dr-nos-state { color: var(--accent-2); background: var(--accent-soft); border-color: rgba(255, 122, 26, 0.45); }
+.dr-purging .dr-nos-state { color: #e9f7ff; background: rgba(233, 247, 255, 0.1); border-color: rgba(233, 247, 255, 0.35); }
+.dr-active .dr-nos-state { color: #7fe9ff; background: rgba(59, 158, 255, 0.16); border-color: rgba(111, 240, 255, 0.55); }
+
+.dr-nos-body { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+
+/* łuk poziomu butli */
+.dr-arc { position: relative; width: 120px; height: 106px; flex: none; }
+.dr-arc-svg { position: absolute; left: 0; top: 0; width: 120px; height: 120px; overflow: visible; }
+.dr-arc-track { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 9; stroke-linecap: round; }
+.dr-arc-fill {
+    fill: none; stroke: url(#drNosGrad); stroke-width: 9; stroke-linecap: round;
+    stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 0.35s linear;
+}
+.dr-low .dr-arc-fill, .dr-isempty .dr-arc-fill { stroke: url(#drNosLow); }
+.dr-arc-ticks line { stroke: rgba(255, 255, 255, 0.2); stroke-width: 1.1; stroke-linecap: round; }
+.dr-arc-ticks line.mj { stroke: rgba(255, 255, 255, 0.45); stroke-width: 1.6; }
+
+.dr-arc-halo {
+    position: absolute; left: 6px; top: 6px; width: 108px; height: 108px; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0 62%, rgba(111, 240, 255, 0.1) 72%, rgba(111, 240, 255, 0.85) 92%, transparent 100%);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 74%, #000 79%, #000 97%, transparent 100%);
+    mask: radial-gradient(circle closest-side, transparent 74%, #000 79%, #000 97%, transparent 100%);
+    opacity: 0; transition: opacity 0.3s ease;
+}
+.dr-active .dr-arc-halo { opacity: 1; animation: dr-spin 0.75s linear infinite; }
+.dr-purging .dr-arc-halo { opacity: 0.45; animation: dr-spin 1.6s linear infinite; }
+
+.dr-arc-center { position: absolute; left: 0; top: 0; width: 120px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.dr-level { font-size: 28px; font-weight: 800; line-height: 1; color: #eaf6ff; letter-spacing: -0.02em; }
+.dr-level small { font-size: 12px; opacity: 0.55; margin-left: 1px; }
+.dr-active .dr-level { color: #9ff3ff; text-shadow: 0 0 14px rgba(111, 240, 255, 0.7); }
+.dr-low .dr-level { color: #ff8b93; }
+.dr-units { margin-top: 4px; font-size: 10px; font-weight: 600; color: var(--muted); }
+.dr-empty {
+    position: absolute; left: 0; right: 0; bottom: -2px; text-align: center;
+    font: 900 10px var(--font); letter-spacing: 0.24em; color: var(--err); opacity: 0;
+}
+.dr-isempty .dr-empty { opacity: 1; animation: dr-blink 1s ease-in-out infinite; }
+
+/* manometr butli */
+.dr-nos-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dr-psi { position: relative; }
+.dr-psi-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.dr-psi-track { fill: none; stroke: rgba(255, 255, 255, 0.06); stroke-width: 7; }
+.dr-psi-zones path { fill: none; stroke-width: 4; opacity: 0.8; }
+.dr-psi-zones .z-cold { stroke: #3b9eff; opacity: 0.55; }
+.dr-psi-zones .z-low { stroke: #f5b942; opacity: 0.65; }
+.dr-psi-zones .z-ok { stroke: #2fd27a; }
+.dr-psi-zones .z-high { stroke: #ef4f5a; }
+.dr-psi-zones .tk { stroke: rgba(255, 255, 255, 0.32); stroke-width: 1; stroke-linecap: round; }
+.dr-psi-needle {
+    transform-box: view-box; transform-origin: 50px 50px;
+    transition: transform 0.45s var(--ease);
+}
+.dr-psi-needle line { stroke: #fff; stroke-width: 2.2; stroke-linecap: round; }
+.dr-psi-needle circle { fill: var(--accent); stroke: #0a0d12; stroke-width: 1.5; }
+.dr-psi-val { margin-top: 1px; text-align: center; font-size: 13px; font-weight: 800; color: var(--text-2); }
+.dr-psi-val small { font-size: 8.5px; font-weight: 800; color: var(--muted); margin-left: 4px; letter-spacing: 0.1em; }
+.dr-psi-ok .dr-psi-val { color: var(--ok); }
+.dr-psi-bad .dr-psi-val { color: var(--info); }
+
+/* dysza (shot) */
+.dr-shot { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.dr-pips { display: flex; gap: 4px; }
+.dr-pip { position: relative; width: 14px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.09); overflow: hidden; }
+.dr-pip::after {
+    content: ''; position: absolute; inset: 0; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    opacity: 0; transition: opacity 0.2s ease;
+}
+.dr-pip.on::after { opacity: 0.45; }
+.dr-pip.cur::after { opacity: 1; }
+.dr-shot-label { font-size: 11px; font-weight: 700; color: var(--text-2); white-space: nowrap; }
+
+/* diody stanów */
+.dr-leds { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 9px; }
+.dr-led {
+    --lc: var(--accent); --lc-soft: var(--accent-soft); --lc-line: rgba(255, 122, 26, 0.5);
+    position: relative; display: flex; align-items: center; justify-content: center; gap: 5px;
+    height: 22px; border-radius: 6px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.28);
+    font: 800 9px var(--font); letter-spacing: 0.12em; color: #5d6776;
+}
+.dr-led[data-k="purge"] { --lc: #e9f7ff; --lc-soft: rgba(233, 247, 255, 0.1); --lc-line: rgba(233, 247, 255, 0.45); }
+.dr-led[data-k="cold"] { --lc: #60a5fa; --lc-soft: rgba(96, 165, 250, 0.14); --lc-line: rgba(96, 165, 250, 0.5); }
+.dr-led[data-k="heat"] { --lc: #ff6a3d; --lc-soft: rgba(255, 106, 61, 0.14); --lc-line: rgba(255, 106, 61, 0.5); }
+.dr-led::before {
+    content: ''; position: absolute; inset: -1px; border-radius: inherit;
+    background: var(--lc-soft); border: 1px solid var(--lc-line);
+    opacity: 0; transition: opacity 0.2s ease;
+}
+.dr-led i { position: relative; width: 6px; height: 6px; border-radius: 50%; background: #262e3a; flex: none; }
+.dr-led i::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background: var(--lc); box-shadow: 0 0 8px var(--lc);
+    opacity: 0; transition: opacity 0.2s ease;
+}
+.dr-led.on { color: var(--lc); }
+.dr-led.on::before, .dr-led.on i::after { opacity: 1; }
+.dr-led.warming i::after { animation: dr-pulse 0.9s ease-in-out infinite; }
+.dr-led.na { opacity: 0.3; }
