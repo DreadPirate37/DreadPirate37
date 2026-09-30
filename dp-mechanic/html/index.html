@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DP Mechanic</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/tablet.css">
+    <link rel="stylesheet" href="css/tablet-pages.css">
+    <link rel="stylesheet" href="css/tuning.css">
+    <link rel="stylesheet" href="css/assembly.css">
+    <link rel="stylesheet" href="css/tires.css">
+    <link rel="stylesheet" href="css/terminal.css">
+    <link rel="stylesheet" href="css/drive.css">
+    <link rel="stylesheet" href="css/lift.css">
+</head>
+<body>
+    <!-- każdy moduł tworzy swój kontener w #app (leniwie, przy pierwszym użyciu) -->
+    <div id="app"></div>
+
+    <!-- rdzeń -->
+    <script src="js/core.js"></script>
+    <script src="js/charts.js"></script>
+
+    <!-- HUD jazdy (nitro, kontrolki) i podnośnik -->
+    <script src="js/drive.js"></script>
+    <script src="js/lift.js"></script>
+
+    <!-- montaż (śruby, szafki, lista zadań) -->
+    <script src="js/games/bolts.js"></script>
+    <script src="js/assembly.js"></script>
+
+    <!-- opony: montażownica i wyważarka -->
+    <script src="js/games/tirechanger.js"></script>
+    <script src="js/games/balancer.js"></script>
+
+    <!-- terminal płatniczy + wybór klienta -->
+    <script src="js/games/terminal.js"></script>
+
+    <!-- menu tuningu / projektów / swapów -->
+    <script src="js/tuning.js"></script>
+
+    <!-- tablet -->
+    <script src="js/tablet/shell.js"></script>
+    <script src="js/tablet/dashboard.js"></script>
+    <script src="js/tablet/orders.js"></script>
+    <script src="js/tablet/projects.js"></script>
+    <script src="js/tablet/invoices.js"></script>
+    <script src="js/tablet/diagnostics.js"></script>
+    <script src="js/tablet/dyno.js"></script>
+    <script src="js/tablet/stock.js"></script>
+    <script src="js/tablet/employees.js"></script>
+    <script src="js/tablet/bank.js"></script>
+    <script src="js/tablet/history.js"></script>
+    <script src="js/tablet/settings.js"></script>
+
+    <script>App.ready();</script>
+</body>
+</html>
