@@ -159,7 +159,6 @@
     DL.Lockpick.open({
       seed: Math.floor(Math.random() * 1e9), difficulty: 3, maxFails: 4, knockMax: 2, stall: 0.8, spring: 0.35,
       mode: m, model: model || qs.get('model') || undefined, amount: demoPicks,
-      location: 'Vinewood Hills 3671 – Kowalscy', clock: 3 * 60 + 14, cash: 59, bag: 0.4,
       skill: { xp: 47, next: 82, level: 2 },
     });
   };

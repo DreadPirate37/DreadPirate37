@@ -221,8 +221,7 @@ DL.Register('lockpick_start', function(src, id)
     local res = {
         ok = true, token = s.token, mode = mode, model = d.lockModel, difficulty = diff,
         advanced = advanced, seed = math.random(1, 2 ^ 30),
-        amount = Bridge.CountAny(src, class), cash = Bridge.GetCash(src),
-        location = d.group ~= '' and (d.name .. ' – ' .. d.group) or d.name,
+        amount = Bridge.CountAny(src, class),
         skill = SK.enabled and { xp = sk.xp, next = sk.next, level = sk.level } or nil,
     }
     if mode == 'diy' then
@@ -236,8 +235,8 @@ DL.Register('lockpick_start', function(src, id)
     return res
 end)
 
---- Zdarzenia w trakcie minigry: pęknięcie narzędzia (ubywa 1 szt., gra trwa dalej,
---- jeśli masz następne) i pełny pasek hałasu (alarm). Sesja nie jest zamykana.
+--- Pęknięcie narzędzia w trakcie minigry: ubywa 1 szt., gra trwa dalej, jeśli masz
+--- następne. Sesja nie jest zamykana.
 DL.Register('lockpick_event', function(src, id, tok, kind)
     local d, _, id2 = door(id)
     local s = sessions[src]
@@ -250,10 +249,6 @@ DL.Register('lockpick_event', function(src, id, tok, kind)
         local left = Bridge.CountAny(src, s.class)
         if left <= 0 then sessions[src] = nil end
         return { ok = true, amount = left }
-    elseif kind == 'noise' and not s.noised then
-        s.noised = true
-        if Config.Lockpick.alarmOnNoise and d.alarm then DL.Alarm(id2, src, 'noise') end
-        return { ok = true }
     end
     return { ok = true }
 end)

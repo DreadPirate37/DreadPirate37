@@ -10,9 +10,7 @@
    zagięty na wybraną zapadkę; napinacz sterczy pionowo w górę. Kursor-dłoń.
 
    HUD: [F] Wyjdź / [E] Latarka / [R] Noktowizor (lewy górny róg),
-   „Ilość wytrychów” (dół, środek), nazwa miejsca na niebiesko (prawo),
-   zegar + pasek hałasu + oko (lewy dół), XP + poziom + plecak z gotówką
-   (prawy dół).
+   „Ilość wytrychów” (dół, środek), XP + poziom Włamywania (prawy dół).
 
    MECHANIKI:
    • wytrych – zapadkę wybierasz myszą (najechanie) lub A/D, wciskasz ją
@@ -24,8 +22,7 @@
      przekręca śrubokrętem; bębenek obraca się tym dalej, im bliżej
      właściwego kąta; zablokowanie = nietrafiona próba.
    • wytrych okrągły – zamek okrągły, 7 zapadek w kole.
-   • latarka i noktowizor zmieniają oświetlenie, każde stuknięcie i błąd
-     robią hałas – pełny pasek hałasu włącza alarm.
+   • latarka i noktowizor zmieniają oświetlenie zamka.
    Płótno jest przezroczyste – w grze pod spodem są drzwi z kamery.
    ========================================================================== */
 DL.Lockpick = (() => {
@@ -381,30 +378,23 @@ DL.Lockpick = (() => {
   /* ==========================================================================
      HUD (DOM) – układ jak w grze
      ========================================================================== */
-  const ICON_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>';
-  const ICON_BAG = '<svg viewBox="0 0 48 56"><defs><clipPath id="lpBagClip"><path d="M8 20c0-6 4-10 10-10h12c6 0 10 4 10 10v28c0 3-2 5-5 5H13c-3 0-5-2-5-5z"/></clipPath></defs><path d="M17 11V7a7 7 0 0 1 14 0v4" fill="none" stroke="#fff" stroke-width="3"/><path d="M8 20c0-6 4-10 10-10h12c6 0 10 4 10 10v28c0 3-2 5-5 5H13c-3 0-5-2-5-5z" fill="none" stroke="#fff" stroke-width="3"/><rect class="bag-fill" x="6" y="34" width="36" height="22" fill="#3aa6ff" clip-path="url(#lpBagClip)"/><path d="M4 30c0-3 2-5 4-5M44 30c0-3-2-5-4-5" stroke="#fff" stroke-width="3" fill="none"/><rect x="16" y="30" width="16" height="10" rx="2" fill="none" stroke="#fff" stroke-width="2.5"/></svg>';
 
   const buildHud = d => {
     const help = [['F', 'Wyjdź'], ['E', 'Latarka'], ['R', 'Noktowizor']];
     const ctl = g.mode === 'diy'
       ? [['MYSZ', 'Kąt spinki'], ['D / LPM', 'Przekręć']]
       : [['MYSZ / A D', 'Wybór zapadki'], ['PPM / S', 'Wciśnij zapadkę'], ['LPM', 'Zablokuj']];
-    const cash = d.cash != null ? `$${Number(d.cash).toLocaleString('en-US')}` : '';
     g.box.insertAdjacentHTML('beforeend', `
       <div class="ts-help">${help.concat(ctl).map(([k, t]) => `<div><b>[ ${k} ]</b> ${t}</div>`).join('')}</div>
-      <div class="ts-loc">${DL.esc(d.location || '')}</div>
       <div class="ts-amount"><span>${g.mode === 'diy' ? 'Ilość spinek:' : 'Ilość wytrychów:'}</span><b class="amt">${g.amount}</b></div>
-      <div class="ts-bl"><span class="clock">--:--</span><span class="noise"><i></i></span><span class="eye">${ICON_EYE}</span></div>
       <div class="ts-br">
         <div class="xp"><div class="xp-t"><span class="xpv"></span><span class="lvl"></span></div><div class="xp-bar"><i></i></div><small>Włamywanie</small></div>
-        <div class="bag">${ICON_BAG}<b>${cash}</b></div>
       </div>
       <div class="ts-note"></div>`);
     g.ui = {
-      amt: DL.$('.amt', g.box), clock: DL.$('.clock', g.box), noise: DL.$('.noise i', g.box), note: DL.$('.ts-note', g.box),
-      xpv: DL.$('.xpv', g.box), lvl: DL.$('.lvl', g.box), xpbar: DL.$('.xp-bar i', g.box), bag: DL.$('.bag-fill', g.box),
+      amt: DL.$('.amt', g.box), note: DL.$('.ts-note', g.box),
+      xpv: DL.$('.xpv', g.box), lvl: DL.$('.lvl', g.box), xpbar: DL.$('.xp-bar i', g.box),
     };
-    if (g.ui.bag) g.ui.bag.setAttribute('y', String(56 - 22 * DL.clamp(d.bag ?? 0.45, 0, 1)));
     xpHud(d.skill);
   };
 
@@ -415,12 +405,6 @@ DL.Lockpick = (() => {
     g.ui.xpbar.style.transform = `scaleX(${DL.clamp(s.xp / Math.max(1, s.next), 0, 1)})`;
   };
 
-  const clockTick = () => {
-    // zegar gry: 1 minuta gry = 2 s (domyślne tempo GTA)
-    const m = Math.floor(g.clock0 + (performance.now() - g.t0) / 2000) % 1440;
-    g.ui.clock.textContent = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-  };
-
   const note = (text, cls = '') => {
     const n = g.ui.note;
     n.textContent = text;
@@ -429,21 +413,11 @@ DL.Lockpick = (() => {
     g.noteT = setTimeout(() => (n.className = 'ts-note ' + cls), 1300);
   };
 
-  const makeNoise = v => {
-    g.noise = Math.min(1, g.noise + v);
-    if (g.noise >= 1 && !g.alarmed) {
-      g.alarmed = true;
-      note('Za głośno! Ktoś mógł usłyszeć…', 'bad');
-      DL.post('lpEvent', { kind: 'noise' });
-    }
-  };
-
   /* ==========================================================================
      PĘKNIĘCIE / WYGRANA / WYJŚCIE
      ========================================================================== */
   const fail = () => {
     g.fails++;
-    makeNoise(0.12);
     if (g.fails >= g.maxFails) return snap();
     DL.Audio.play('error', 0.3);
   };
@@ -453,7 +427,6 @@ DL.Lockpick = (() => {
     g.broken = true;
     g.fall = { x: 0, y: 0, vy: -140, r: 0 };
     DL.Audio.play('snap');
-    makeNoise(0.2);
     note(g.mode === 'diy' ? 'Spinka pękła!' : 'Wytrych pękł!', 'bad');
     const res = await DL.post('lpEvent', { kind: 'break' });
     if (!g) return;
@@ -515,7 +488,6 @@ DL.Lockpick = (() => {
     if (g.over || g.busy || g.knockCd > 0) return;
     g.knockCd = 0.12;
     g.dip = 1;
-    makeNoise(0.02);
     const q = g.pins[g.sel];
     if (q.set || q.stall > 0 || q.fall > 0) return DL.Audio.play('pin', 0.25);
     q.p = Math.min(1, q.p + 0.5 * (0.9 + g.rnd() * 0.2));
@@ -567,7 +539,7 @@ DL.Lockpick = (() => {
         g.binding = true;
         g.bindT += dt;
         g.bend = DL.lerp(g.bend, 0.5 + (1 - allow) * 0.6, dt * 8);
-        if ((g.creakT -= dt) <= 0) { g.creakT = 0.3; DL.Audio.play('creak', 0.3 + (1 - allow) * 0.4); makeNoise(0.02); }
+        if ((g.creakT -= dt) <= 0) { g.creakT = 0.3; DL.Audio.play('creak', 0.3 + (1 - allow) * 0.4); }
         if (g.bindT > 0.35 && !g.counted) { g.counted = true; fail(); }
       }
     } else {
@@ -757,12 +729,10 @@ DL.Lockpick = (() => {
     const dt = Math.min(0.05, (t - (g.last || t)) / 1000);
     g.last = t;
     g.knockCd = Math.max(0, (g.knockCd || 0) - dt);
-    g.noise = Math.max(0, g.noise - dt * 0.05);
     if (g.mode === 'diy') diyUpdate(dt);
     else if (!g.over && !g.busy) pinsUpdate(dt);
     render(dt);
     if (!g) return;
-    g.ui.noise.style.transform = `scaleX(${g.noise.toFixed(3)})`;
     g.raf = requestAnimationFrame(loop);
   };
 
@@ -778,8 +748,8 @@ DL.Lockpick = (() => {
     g = {
       box, cv, ctx: cv.getContext('2d'), mode, diff, rnd: DL.rng(d.seed || 1),
       over: false, busy: false, broken: false, fails: 0, maxFails: d.maxFails || 4, opening: 0,
-      amount: d.amount ?? 1, noise: 0, alarmed: false, light: true, nv: false,
-      clock0: (d.clock ?? 0), t0: performance.now(), rot: 0, bend: 0, binding: false,
+      amount: d.amount ?? 1, light: true, nv: false,
+      rot: 0, bend: 0, binding: false,
     };
     buildHud(d);
 
@@ -838,8 +808,6 @@ DL.Lockpick = (() => {
     DL.layer.open('lockpick', box, () => { document.body.classList.remove('lp-on'); window.removeEventListener('mouseup', up); window.removeEventListener('resize', fit); if (g) { cancelAnimationFrame(g.raf); clearInterval(g.iv); g = null; } });
     window.addEventListener('resize', fit);
     fit();
-    clockTick();
-    g.iv = setInterval(clockTick, 1000);
     g.raf = requestAnimationFrame(loop);
     DL.Audio.play('open', 0.5);
   };
@@ -868,7 +836,7 @@ DL.Lockpick = (() => {
   };
 
   /** podgląd stanu dla testów automatycznych */
-  const peek = () => g && { mode: g.mode, rot: g.rot, over: g.over, fails: g.fails, amount: g.amount, noise: g.noise, sel: g.sel, pins: g.pins && g.pins.map(q => ({ p: q.p, set: q.set, stall: q.stall })) };
+  const peek = () => g && { mode: g.mode, rot: g.rot, over: g.over, fails: g.fails, amount: g.amount, sel: g.sel, pins: g.pins && g.pins.map(q => ({ p: q.p, set: q.set, stall: q.stall })) };
 
   return { open, key, peek };
 })();

@@ -83,7 +83,6 @@ Config.Lockpick = {
         maxFails = 4,                        -- kliknięcia „zablokuj” w złym momencie, po których wytrych pęka
     },
     advancedBonus = 0.25,                    -- zaawansowany wytrych: dłuższe „stanie” zapadki
-    alarmOnNoise = true,                     -- pełny pasek hałasu w minigrze włącza alarm (jeśli drzwi mają alarm)
     -- umiejętność „Włamywanie” (XP i poziomy jak w grze; zapis w KVP)
     skill = {
         enabled = true,

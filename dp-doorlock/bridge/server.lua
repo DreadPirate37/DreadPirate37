@@ -130,15 +130,6 @@ function Bridge.CountAny(src, items)
     return n
 end
 
---- Gotówka gracza (do HUD-u minigry)
-function Bridge.GetCash(src)
-    local p = getPlayer(src)
-    if fw == 'esx' and p then return p.getMoney() end
-    if (fw == 'qb' or fw == 'qbx') and p then return p.PlayerData.money and p.PlayerData.money.cash or 0 end
-    if inv == 'ox' then return exports.ox_inventory:Search(src, 'count', 'money') or 0 end
-    return nil
-end
-
 function Bridge.RemoveItem(src, item, count)
     count = count or 1
     if inv == 'ox' then return exports.ox_inventory:RemoveItem(src, item, count) end
