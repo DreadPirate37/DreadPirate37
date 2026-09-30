@@ -1,0 +1,62 @@
+/* ==========================================================================
+   Minigry: wytrych i hakowanie
+   ========================================================================== */
+.game {
+  position: relative; width: 1000px; border-radius: 26px; overflow: hidden;
+  background: linear-gradient(170deg, #161b2c, #090b12);
+  box-shadow: 0 0 0 1px var(--line-2), 0 50px 120px rgba(0,0,0,.75); animation: deviceIn .5s var(--spring);
+  transform-origin: center; transform: scale(var(--gs, 1));
+}
+.game canvas { display: block; width: 1000px; height: 540px; }
+.g-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 18px; padding: 20px 26px; pointer-events: none;
+  background: linear-gradient(rgba(6, 7, 12, .85), transparent); }
+.g-top .ttl { display: flex; align-items: center; gap: 12px; }
+.g-top .ttl .bdg { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; color: #fff; background: var(--grad); box-shadow: 0 6px 20px rgba(var(--acc-rgb), .4); }
+.g-top .ttl b { display: block; font-size: 16px; font-weight: 600; }
+.g-top .ttl span { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.g-stat { margin-left: auto; display: flex; gap: 22px; align-items: center; }
+.g-stat .st { display: flex; flex-direction: column; gap: 6px; min-width: 110px; }
+.g-stat .st small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); display: flex; justify-content: space-between; }
+.g-stat .st small em { font: 600 11px var(--mono); font-style: normal; color: var(--txt); }
+.bar { height: 6px; border-radius: 6px; background: var(--ink-4); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 100%; border-radius: 6px; background: var(--grad); transform-origin: 0 0; transition: transform .25s var(--ease); }
+.bar.hp i { background: linear-gradient(90deg, var(--locked), var(--broken) 50%, var(--open)); background-size: 110px 100%; }
+.pins { display: flex; gap: 6px; }
+.pins i { width: 12px; height: 12px; border-radius: 4px; background: var(--ink-4); box-shadow: inset 0 0 0 1px var(--line-2); transition: background .25s, box-shadow .25s, transform .3s var(--spring); }
+.pins i.on { background: var(--open); box-shadow: 0 0 10px var(--open); transform: scale(1.15); }
+.g-time { font: 600 22px var(--mono); min-width: 70px; text-align: right; }
+.g-time.warn { color: var(--locked); animation: blink .6s steps(2) infinite; }
+.g-foot { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 22px; padding: 16px; font-size: 12px; color: #c1c8da; pointer-events: none;
+  background: linear-gradient(transparent, rgba(6, 7, 12, .9)); }
+.g-foot span { display: inline-flex; align-items: center; gap: 7px; }
+.g-msg { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); font-size: 14px; font-weight: 600; padding: 7px 16px; border-radius: 999px; opacity: 0; transition: opacity .2s, transform .3s var(--spring); pointer-events: none; white-space: nowrap; }
+.g-msg.show { opacity: 1; transform: translateX(-50%) translateY(4px); }
+.g-msg.good { background: rgba(var(--open-rgb), .15); color: var(--open); box-shadow: inset 0 0 0 1px rgba(var(--open-rgb), .4); }
+.g-msg.bad { background: rgba(var(--locked-rgb), .15); color: var(--locked); box-shadow: inset 0 0 0 1px rgba(var(--locked-rgb), .4); }
+.g-msg.warn { background: rgba(var(--broken-rgb), .15); color: var(--broken); box-shadow: inset 0 0 0 1px rgba(var(--broken-rgb), .4); }
+.g-end { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(circle, rgba(6,7,12,.55), rgba(6,7,12,.9)); animation: fadeIn .3s; }
+.g-end .box { text-align: center; animation: pop .45s var(--spring); }
+.g-end .big { width: 96px; height: 96px; margin: 0 auto 16px; border-radius: 30px; display: grid; place-items: center; font-size: 44px; }
+.g-end.win .big { color: #03140d; background: linear-gradient(180deg, #54f0b9, var(--open)); box-shadow: 0 0 60px rgba(var(--open-rgb), .6); }
+.g-end.lose .big { color: #fff; background: linear-gradient(180deg, #ff6b8c, #e0385f); box-shadow: 0 0 60px rgba(var(--locked-rgb), .6); }
+.g-end b { font-size: 26px; font-weight: 700; display: block; }
+.g-end span { color: var(--mute); font-size: 13px; }
+
+/* ---------------- hakowanie: pokrętła ---------------- */
+.hk-side { position: absolute; right: 24px; top: 100px; bottom: 70px; width: 200px; display: flex; flex-direction: column; gap: 14px; }
+.knob { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.025); box-shadow: inset 0 0 0 1px var(--line); cursor: ns-resize; }
+.knob .dial { position: relative; width: 58px; height: 58px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 40% 30%, #3a4262, #151a2a 70%); box-shadow: 0 6px 14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18), 0 0 0 4px #0c0f18, 0 0 0 5px rgba(var(--acc2-rgb), .25); }
+.knob .dial::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.08) 0 2deg, transparent 2deg 12deg); }
+.knob .dial i { position: absolute; left: 50%; top: 6px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--acc2); box-shadow: 0 0 8px var(--acc2); transform-origin: 50% 23px; }
+.knob .kv b { display: block; font-size: 12px; font-weight: 600; }
+.knob .kv em { font: 600 16px var(--mono); font-style: normal; color: var(--acc2); }
+.knob .kv small { display: block; font-size: 10px; color: var(--dim); margin-top: 2px; }
+.knob.hot { box-shadow: inset 0 0 0 1px rgba(var(--acc2-rgb), .5), 0 0 20px rgba(var(--acc2-rgb), .15); }
+.sync { margin-top: auto; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.025); box-shadow: inset 0 0 0 1px var(--line); }
+.sync small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.sync .pct { font: 700 34px var(--mono); line-height: 1.1; margin: 4px 0 8px; }
+.sync .pct.hi { color: var(--open); text-shadow: 0 0 18px rgba(var(--open-rgb), .6); }
+.sync .bar i { transition: transform .1s linear; }
+.sync .hold { height: 4px; margin-top: 8px; border-radius: 4px; background: var(--ink-4); overflow: hidden; }
+.sync .hold i { display: block; height: 100%; background: var(--open); transform-origin: 0 0; transform: scaleX(0); box-shadow: 0 0 10px var(--open); }
