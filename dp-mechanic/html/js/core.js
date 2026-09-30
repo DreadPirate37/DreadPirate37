@@ -291,15 +291,6 @@
         hiss: function () { noise(1.2, 0.18, 7000, 0, 0.4, 'highpass'); },
         stick: function () { noise(0.04, 0.3, 1200, 0, 3); },
         drill: function () { tone(180, 0.4, 'sawtooth', 0.08, 0, 260); },
-        // wytrych
-        pinTap: function () { noise(0.012, 0.18, 4200, 0, 9); },
-        pinSet: function () { noise(0.02, 0.55, 3000, 0, 14); tone(2100, 0.035, 'triangle', 0.08, 0.005); },
-        pinDrop: function () { noise(0.03, 0.25, 1800, 0, 6); noise(0.02, 0.15, 2400, 0.04, 6); },
-        scrape: function () { noise(0.06, 0.07, 6500, 0, 2, 'highpass'); },
-        spring: function () { tone(900, 0.05, 'sine', 0.04, 0, 1300); },
-        snap: function () { noise(0.05, 0.9, 5000, 0, 3, 'highpass'); noise(0.12, 0.4, 900, 0.02, 2); tone(2600, 0.04, 'square', 0.1); },
-        strain: function () { tone(1400 + Math.random() * 500, 0.05, 'sawtooth', 0.025); },
-        unlock: function () { noise(0.04, 0.6, 1500, 0, 4); noise(0.06, 0.5, 700, 0.12, 3); tone(320, 0.15, 'triangle', 0.15, 0.12, 220); },
     };
     App.sound = function (name) {
         if (muted) return;

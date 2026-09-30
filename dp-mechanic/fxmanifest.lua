@@ -37,7 +37,6 @@ client_scripts {
     'client/tuning.lua',
     'client/payment.lua',
     'client/tablet.lua',
-    'client/lockpick.lua',
 }
 
 server_scripts {
@@ -50,7 +49,6 @@ server_scripts {
     'server/orders.lua',
     'server/invoices.lua',
     'server/lifts.lua',
-    'server/lockpick.lua',
 }
 
 ui_page 'html/index.html'

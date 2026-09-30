@@ -34,8 +34,7 @@ add('weights', 'Ciężarki do wyważania (taśma)', 15, 'wheels', 'small')
 add('paint_can', 'Lakier (puszka 1 L)', 250, 'paint', 'fluid')
 add('neon_kit', 'Zestaw neonów LED', Config.PaintPrices.neonKit, 'body', 'small')
 add('align_kit', 'Zestaw do geometrii (drążki, końcówki)', 120, 'perf', 'small')
-add('lockpick', 'Wytrych ślusarski', 45, 'wear', 'small')
-add('inspection_kit','Zestaw przeglądowy (filtry, uszczelki)', 90, 'wear', 'small')
+add('inspection_kit', 'Zestaw przeglądowy (filtry, uszczelki)', 90, 'wear', 'small')
 for id, e in pairs(Config.Engines) do
     if id ~= 'stock' then add('swap_engine_' .. id, 'Silnik – ' .. e.label, e.price, 'swap', 'engine_part') end
 end
