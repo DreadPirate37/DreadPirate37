@@ -136,7 +136,8 @@ CreateThread(function()
                         marker(w, col)
                         if inspect then
                             local txt = (#block > 0 and '~c~' or '~y~') .. def.label
-                            if not def.op then txt = txt .. ' ~s~' .. p.c .. '%' end
+                            if st.mode == 'build' then txt = txt .. ' ~o~brak'
+                            elseif not def.op then txt = txt .. ' ~s~' .. p.c .. '%' end
                             D.Text3D(w + vector3(0.0, 0.0, 0.07), txt, 0.26)
                         end
                         if dist < 2.8 then
@@ -153,7 +154,25 @@ CreateThread(function()
                 end
             end
 
-            if st.mode == 'revin' and st.ready then
+            -- rozebrane do gołej karoserii: można zostawić na składaka
+            if st.mode == 'chop' and Config.Build.enabled then
+                local bare = true
+                for _, id in ipairs(Config.Build.parts) do
+                    local pp = st.parts[id]
+                    if pp and pp.s ~= 'done' then bare = false break end
+                end
+                if bare then
+                    D.Text3D(GetEntityCoords(veh) + vector3(0.0, 0.0, 1.2), L('build_convert'), 0.32)
+                    if IsControlJustReleased(0, 29) then
+                        CreateThread(function()
+                            local r = D.Callback('buildConvert', st.id)
+                            if r and r.msg then D.Notify(r.msg, r.ok and 'good' or 'bad') end
+                        end)
+                    end
+                end
+            end
+
+            if (st.mode == 'revin' or st.mode == 'build') and st.ready then
                 D.Help(L('help_revin_done'))
                 if IsControlJustReleased(0, 38) then openPaint(veh, st) end
             elseif best then
@@ -164,7 +183,11 @@ CreateThread(function()
                 elseif #bestBlock > 0 then
                     line = '~r~' .. L('part_blocked', table.concat(bestBlock, ', '))
                 else
-                    line = bestDef.op and '~g~Gotowe do pracy' or ('Stan: ~b~' .. p.c .. '%~s~ (' .. Logic.GradeLabel(p.c) .. ')')
+                    if st.mode == 'build' then
+                        line = '~o~Brak – [E] zamontuj z magazynu'
+                    else
+                        line = bestDef.op and '~g~Gotowe do pracy' or ('Stan: ~b~' .. p.c .. '%~s~ (' .. Logic.GradeLabel(p.c) .. ')')
+                    end
                 end
                 D.Text3D(best.w + vector3(0.0, 0.0, 0.16), '~y~' .. bestDef.label, 0.38)
                 D.Text3D(best.w + vector3(0.0, 0.0, 0.11), line, 0.3)

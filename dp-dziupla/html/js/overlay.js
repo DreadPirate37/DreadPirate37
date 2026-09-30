@@ -1366,7 +1366,7 @@
       const p = this.part;
       $('p-card').innerHTML = `
         <div class="pc-title">${W.esc(p.label)}</div>
-        <div class="pc-sub">${W.esc(this.ctx.vehicle || '')}${p.op ? ' · czynność serwisowa' : ''}</div>
+        <div class="pc-sub">${W.esc(this.ctx.vehicle || '')}${p.op ? ' · czynność serwisowa' : ''}${p.install ? ` · MONTAŻ (część z: ${W.esc(p.from || '?')})` : ''}</div>
         <div id="pc-cond"></div>
         <ul id="pc-list"></ul>
         <div id="pc-flags"></div>`;
@@ -1439,7 +1439,7 @@
       const rm = $('p-remove');
       if (this.allDone() && !this.finishing) {
         rm.classList.remove('hidden');
-        rm.querySelector('b').textContent = p.op ? `Gotowe: ${p.label} – przytrzymaj SPACJĘ` : `Zdejmij: ${p.label} – przytrzymaj SPACJĘ`;
+        rm.querySelector('b').textContent = p.op ? `Gotowe: ${p.label} – przytrzymaj SPACJĘ` : p.install ? `Zamontowane: ${p.label} – przytrzymaj SPACJĘ` : `Zdejmij: ${p.label} – przytrzymaj SPACJĘ`;
         rm.querySelector('s').style.width = ((this.removeHold / 0.9) * 100).toFixed(0) + '%';
       } else if (!this.finishing) rm.classList.add('hidden');
     },

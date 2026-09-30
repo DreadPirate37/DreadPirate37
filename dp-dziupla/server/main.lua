@@ -348,7 +348,7 @@ function DZ.ItemView(p, it)
     return {
         u = it.u, t = it.t, label = DZ.ItemLabel(it), cat = t.cat, catLabel = Config.Categories[t.cat or 'scrap'],
         cond = it.c or 0, value = DZ.Price(p, it), vehicle = it.v, regen = it.r == true,
-        bench = t.bench, reserved = DZ.IsRes(p, it.u),
+        bench = t.bench, reserved = DZ.IsRes(p, it.u), tuning = it.mk ~= nil,
     }
 end
 
@@ -378,7 +378,13 @@ local function shopView(src, p)
     for k, u in pairs(Config.Upgrades) do
         upg[#upg + 1] = { key = k, label = u.label, price = u.price, have = ((DZ.Store and DZ.Store(p) or p).upg[k]) or 0, max = u.max }
     end
-    return { tools = tools, cons = cons, upg = upg }
+    local shells = {}
+    if Config.Build.enabled then
+        for i, sh in ipairs(Config.Build.shells) do
+            shells[i] = { idx = i, model = sh.model, label = sh.model:gsub('^%l', string.upper), price = sh.price, locked = lvl < Config.Build.minLevel, minLevel = Config.Build.minLevel }
+        end
+    end
+    return { tools = tools, cons = cons, upg = upg, shells = shells }
 end
 
 local function perkView(p)
@@ -422,6 +428,7 @@ function DZ.Overview(src)
     if DZ.StreetView then DZ.StreetView(src, p, data) end
     if DZ.CrewView then DZ.CrewView(src, p, data) end
     if DZ.RaidView then DZ.RaidView(src, p, data) end
+    if DZ.AuctionView then DZ.AuctionView(src, p, data) end
     return data
 end
 

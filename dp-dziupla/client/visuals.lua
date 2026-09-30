@@ -5,6 +5,7 @@
 -- ==========================================================================
 local D = Dz
 local applied = {}   -- [veh] = { [partId] = true }
+local built = {}     -- [veh] = wersja stanu składaka
 
 local function applyPart(veh, def)
     local v = def.vis
@@ -31,6 +32,20 @@ end
 
 function D.ApplyVisuals(veh, st)
     if not st or not st.parts or not DoesEntityExist(veh) then return end
+    -- składak: naprawiamy całe auto i „zdejmujemy” to, czego jeszcze nie zamontowano
+    if st.mode == 'build' then
+        if built[veh] ~= st.ver then
+            built[veh] = st.ver
+            SetVehicleFixed(veh)
+            SetVehicleDeformationFixed(veh)
+            for id, p in pairs(st.parts) do
+                local def = Parts.ById[id]
+                if def and p.s ~= 'done' then applyPart(veh, def) end
+            end
+        end
+        SetVehicleUndriveable(veh, true)
+        return
+    end
     local done = applied[veh] or {}
     applied[veh] = done
     SetVehicleUndriveable(veh, true)
@@ -48,6 +63,7 @@ end
 
 function D.ForgetVisuals(veh)
     applied[veh] = nil
+    built[veh] = nil
     D.ClearAnchorCache(veh)
 end
 

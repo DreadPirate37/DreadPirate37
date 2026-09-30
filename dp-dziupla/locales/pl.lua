@@ -126,6 +126,15 @@ Locales = {
     tow_has           = 'Masz już wypożyczoną lawetę.',
     tow_loaded        = 'Auto na platformie – wieź je do dziupli.',
     tow_bad           = 'Tego auta nie wciągniesz.',
+    build_missing     = 'Nie masz w magazynie: %s.',
+    build_installed   = '%s zamontowane (stan %d%%, z auta: %s).',
+    build_done        = 'Składak gotowy (średni stan %d%%). Teraz lakier i papiery [E].',
+    build_convert     = '~INPUT_SPECIAL_ABILITY_SECONDARY~ Zostaw karoserię na składaka',
+    build_bought      = 'Karoseria stoi na stanowisku. Montuj części z magazynu [E].',
+    build_no_bay      = 'Wszystkie stanowiska są zajęte.',
+    help_tune         = '~INPUT_DETONATE~ Tuning z odzysku (części z magazynu)',
+    tune_none         = 'Nie masz w magazynie tuningu pasującego do tego auta.',
+    tune_done         = 'Zamontowano: %s.',
 }
 
 function L(key, ...)

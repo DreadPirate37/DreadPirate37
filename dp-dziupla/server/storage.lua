@@ -44,6 +44,7 @@ local function meta(it)
     if it.r then desc = desc .. ' · regenerowana' end
     return {
         dzid = it.u, t = it.t, c = it.c, m = it.m, v = it.v, r = it.r, k = it.k, h = it.h,
+        mk = it.mk, mv = it.mv, mdl = it.mdl, wt = it.wt,
         label = ('%s (%d%%)'):format(label, it.c or 0), description = desc,
         weight = math.floor(((it.t == 'scrap' and it.k) or t.kg or 1) * 1000),
         image = I.images and ('dz_' .. it.t) or nil,
@@ -53,7 +54,7 @@ end
 local function fromMeta(slot)
     local m = slot.metadata or {}
     if not m.t or not m.dzid then return nil end
-    return { u = m.dzid, t = m.t, c = m.c, m = m.m, v = m.v, r = m.r, k = m.k, h = m.h, slot = slot.slot }
+    return { u = m.dzid, t = m.t, c = m.c, m = m.m, v = m.v, r = m.r, k = m.k, h = m.h, mk = m.mk, mv = m.mv, mdl = m.mdl, wt = m.wt, slot = slot.slot }
 end
 
 -- ==========================================================================

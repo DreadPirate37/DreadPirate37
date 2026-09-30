@@ -13,6 +13,7 @@
     ['market', 'Rynek'],
     ['shop', 'Sklep'],
     ['skills', 'Umiejętności'],
+    ['auction', 'Giełda'],
     ['crew', 'Ekipa'],
   ];
   const stars = n => '★'.repeat(n) + '☆'.repeat(Math.max(0, 4 - n));
@@ -39,9 +40,9 @@
       if (!silent) W.post('laptop', { action: 'close' });
     },
 
-    async act(action, arg, arg2) {
+    async act(action, arg, arg2, arg3) {
       W.Audio.click();
-      const res = await W.post('laptop', { action, arg, arg2 });
+      const res = await W.post('laptop', { action, arg, arg2, arg3 });
       if (!res) return;
       if (res.msg) W.toast(res.msg, res.ok ? 'good' : 'bad');
       if (res.data) {
@@ -102,7 +103,10 @@
             arg = el ? el.value : '';
             if (b.dataset.neg != null) arg = -Math.abs(Number(arg) || 0);
           }
-          this.act(b.dataset.act, arg, b.dataset.arg2 != null ? Number(b.dataset.arg2) : undefined);
+          let arg2 = b.dataset.arg2 != null ? Number(b.dataset.arg2) : undefined;
+          if (b.dataset.from2) arg2 = Number((W.$(b.dataset.from2) || {}).value) || 0;
+          const arg3 = b.dataset.from3 ? Number((W.$(b.dataset.from3) || {}).value) || 1 : undefined;
+          this.act(b.dataset.act, arg, arg2, arg3);
         };
       });
       root.querySelectorAll('[data-gps]').forEach(b => {
@@ -186,6 +190,32 @@
         <div class="risk"><span>${r.heat} / ${r.threshold}</span><i><s style="width:${(k * 100).toFixed(0)}%;background:${col}"></s></i></div>
         <p>Każde auto, część i zgłoszenie podbija heat. Powyżej progu policja może zrobić nalot i zabezpieczyć świeże części z regałów.</p>
         <div class="c-foot"><span></span><button class="btn" data-act="raidBribe" ${r.canBribe ? '' : 'disabled'}>Koperta dla dzielnicowego ${W.fmtMoney(r.bribe)}</button></div></div>`;
+    },
+
+    tab_auction() {
+      const a = this.data.auction;
+      if (!a) return '<div class="card empty">Giełda jest wyłączona.</div>';
+      const t = s => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min` : `${Math.floor(s / 60)} min ${s % 60} s`);
+      const cards = a.list.map((x, i) => `
+        <div class="card ${x.lead ? 'act' : ''}">
+          <div class="c-head"><h3>${W.esc(x.label)}</h3><b style="color:${W.condColor(x.cond)}">${x.cond}%</b></div>
+          <p>${W.esc(x.cat || '')}${x.vehicle ? ' · z auta ' + W.esc(x.vehicle) : ''}${x.tuning ? ' · <b>tuning</b>' : ''}<br>
+            Sprzedaje: ${W.esc(x.seller || '?')} · paser dałby ~${W.fmtMoney(x.fence)} · koniec za ${t(x.left)}</p>
+          <div class="c-foot"><div><small>${x.bid ? 'Najwyższa' : 'Wywoławcza'}</small><b>${W.fmtMoney(x.bid || x.start)}</b></div>
+          ${x.mine ? (x.bid ? '<small>Twoja aukcja</small>' : `<button class="btn danger" data-act="auctionCancel" data-arg="${x.id}">Wycofaj</button>`)
+            : x.lead ? '<span class="tag ok">prowadzisz</span>'
+            : `<input id="bid${i}" class="inp" style="width:84px" value="${x.min}"><button class="btn primary" data-act="auctionBid" data-arg="${x.id}" data-from2="bid${i}">Licytuj</button>`}</div>
+        </div>`).join('');
+      const own = this.data.warehouse.items.filter(i => !i.reserved);
+      return `${a.waiting ? `<div class="lt-event"><b>Czeka na miejsce w magazynie:</b> ${a.waiting} wygranych części</div>` : ''}
+        <div class="card" style="margin-bottom:12px"><div class="c-head"><h3>Wystaw część</h3><small>prowizja giełdy ${Math.round(a.fee * 100)}%</small></div>
+          <div class="c-foot">
+            <select id="auItem" style="flex:2">${own.map(i => `<option value="${i.u}">${W.esc(i.label)} · ${i.cond}% · paser ${W.fmtMoney(i.value)}</option>`).join('')}</select>
+            <input id="auPrice" class="inp" style="width:120px" placeholder="Cena ($)" value="${a.minPrice}">
+            <select id="auDur">${a.durations.map((d, k) => `<option value="${k + 1}">${d >= 3600 ? d / 3600 + ' h' : d / 60 + ' min'}</option>`).join('')}</select>
+            <button class="btn primary" data-act="auctionList" data-from="auItem" data-from2="auPrice" data-from3="auDur" ${own.length ? '' : 'disabled'}>Wystaw</button>
+          </div></div>
+        <div class="cards">${cards || '<div class="card empty">Na giełdzie nic nie ma.</div>'}</div>`;
     },
 
     tab_crew() {
@@ -310,7 +340,7 @@
           <tbody>${items.map(i => `
             <tr class="${i.reserved ? 'res' : ''}">
               <td>${i.reserved ? '📦' : `<input type="checkbox" data-sel="${i.u}" ${this.sel.has(i.u) ? 'checked' : ''}>`}</td>
-              <td><b>${W.esc(i.label)}</b>${i.regen ? ' <span class="tag">regenerowana</span>' : ''}${i.reserved ? ' <span class="tag">w zamówieniu</span>' : ''}<small>${W.esc(i.catLabel || '')}</small></td>
+              <td><b>${W.esc(i.label)}</b>${i.tuning ? ' <span class="tag ok">tuning</span>' : ''}${i.regen ? ' <span class="tag">regenerowana</span>' : ''}${i.reserved ? ' <span class="tag">w zamówieniu</span>' : ''}<small>${W.esc(i.catLabel || '')}</small></td>
               <td>${W.esc(i.vehicle || '–')}</td>
               <td><div class="cond"><i style="width:${i.cond}%;background:${W.condColor(i.cond)}"></i></div><small>${i.cond}%</small></td>
               <td><b>${W.fmtMoney(i.value)}</b></td>
@@ -368,6 +398,10 @@
           <div class="card"><div class="c-head"><h3>${W.esc(c.label)}</h3><b>${W.fmtMoney(c.price)}/szt.</b></div>
             <p>Masz: <b>${c.have}</b> / ${c.max}</p>
             <div class="c-foot"><span></span><button class="btn" data-act="buy" data-arg="${c.key}" data-arg2="1" ${at && c.have < c.max ? '' : 'disabled'}>+1</button><button class="btn" data-act="buy" data-arg="${c.key}" data-arg2="5" ${at && c.have < c.max ? '' : 'disabled'}>+5</button></div></div>`).join('')}</div>
+        ${(s.shells || []).length ? `<h2>Gołe karoserie – składaki</h2><p class="lead">Karoseria stanie na wolnym stanowisku. Montujesz na niej części z magazynu (jak w CMS), a gotowe auto lakierujesz i sprzedajesz handlarzowi. Stan składaka = średni stan części.</p>
+        <div class="cards">${s.shells.map(sh => `<div class="card ${sh.locked ? 'locked' : ''}"><div class="c-head"><h3>${W.esc(sh.label)}</h3><b>${W.fmtMoney(sh.price)}</b></div>
+          <p>${sh.locked ? `Wymaga poziomu ${sh.minLevel}` : 'Goła karoseria, bez części.'}</p>
+          <div class="c-foot"><span></span><button class="btn primary" data-act="buildBuy" data-arg="${sh.idx}" ${sh.locked || !at ? 'disabled' : ''}>Kup</button></div></div>`).join('')}</div>` : ''}
         <h2>Ulepszenia dziupli</h2><div class="cards">${s.upg.map(u => `
           <div class="card"><div class="c-head"><h3>${W.esc(u.label)}</h3><b>${W.fmtMoney(u.price)}</b></div><p>Poziom: ${u.have}/${u.max}</p>
             <div class="c-foot"><span></span><button class="btn primary" data-act="buy" data-arg="${u.key}" ${at && u.have < u.max ? '' : 'disabled'}>Kup</button></div></div>`).join('')}</div>`;
@@ -420,6 +454,23 @@
       $('bpCancel').onclick = () => { el.classList.add('hidden'); W.post('bench', { action: 'cancel' }); };
     },
     close() { $('modal').classList.add('hidden'); },
+  };
+
+  W.TunePick = {
+    open(items) {
+      const el = $('modal');
+      el.innerHTML = `<div class="card wide"><h2>Tuning z odzysku</h2>
+        <p class="lead">Części z tuningiem z magazynu. Mechanika (silnik, turbo, hamulce, zawieszenie, skrzynia, felgi, ksenony) pasuje do każdego auta, a blacharka (spojler, zderzaki, maska, wydech) tylko do tego samego modelu.</p>
+        <div class="pick">${items.map(i => `<button class="pick-it" data-uid="${i.u}"><b>${W.esc(i.label)}</b><small>${W.esc(i.vehicle || '')}</small><span style="color:${W.condColor(i.cond)}">${i.cond}%</span><em>${W.esc(i.mk)}</em></button>`).join('')}</div>
+        <div class="row"><button class="btn" id="tpCancel">Anuluj</button></div></div>`;
+      el.classList.remove('hidden');
+      el.querySelectorAll('[data-uid]').forEach(b => (b.onclick = () => {
+        W.Audio.click();
+        el.classList.add('hidden');
+        W.post('tune', { uid: Number(b.dataset.uid) });
+      }));
+      $('tpCancel').onclick = () => { el.classList.add('hidden'); W.post('tune', { cancel: true }); };
+    },
   };
 
   W.Paint = {

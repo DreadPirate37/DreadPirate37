@@ -34,6 +34,7 @@ server_scripts {
     'server/logs.lua',
     'server/crew.lua',
     'server/raid.lua',
+    'server/auction.lua',
     'server/chop.lua',
     'server/street.lua',
 }

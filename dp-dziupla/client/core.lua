@@ -187,6 +187,7 @@ function D.Snapshot(veh)
         exhaust = GetVehicleMod(veh, 4), hood = GetVehicleMod(veh, 7), engine = GetVehicleMod(veh, 11),
         brakes = GetVehicleMod(veh, 12), trans = GetVehicleMod(veh, 13), susp = GetVehicleMod(veh, 15),
         wheels = GetVehicleMod(veh, 23), turbo = IsToggleModOn(veh, 18), xenon = IsToggleModOn(veh, 22),
+        wheelType = GetVehicleWheelType(veh),
     }
     return s
 end

@@ -7,6 +7,7 @@ local ByNet = {}      -- [netId] = jobId
 local Sessions = {}   -- [src] = { kind, token, ... }
 local Carry = {}      -- [src] = przedmiot niesiony na regał
 local jobSeq = 0
+local bestItem        -- (niżej) najlepsza część z magazynu do montażu
 local Stripped = {}   -- [netId] = { [partId] = true } – części już zdjęte na ulicy
 
 local S = Config.Security
@@ -73,6 +74,10 @@ local function releasePart(src)
         job.parts[s.partId].by = nil
         publish(job)
     end
+    if s.item then
+        local p = DZ.Profile(src)
+        if p then DZ.SetRes(p, s.item, false) end
+    end
     Sessions[src] = nil
 end
 
@@ -120,7 +125,7 @@ local function snapSanitize(snap, veh)
     for _, k in ipairs({ 'f', 'r' }) do s.bumperOff[k] = type(snap.bumperOff) == 'table' and snap.bumperOff[k] == true end
     for _, k in ipairs({ 'front', 'rear' }) do s.windows[k] = type(snap.windows) == 'table' and snap.windows[k] == true end
     local m = type(snap.mods) == 'table' and snap.mods or {}
-    for _, k in ipairs({ 'spoiler', 'bumperF', 'bumperR', 'exhaust', 'hood', 'engine', 'brakes', 'trans', 'susp', 'wheels' }) do
+    for _, k in ipairs({ 'spoiler', 'bumperF', 'bumperR', 'exhaust', 'hood', 'engine', 'brakes', 'trans', 'susp', 'wheels', 'wheelType' }) do
         s.mods[k] = math.floor(DZ.num(m[k], -1, 60))
     end
     s.mods.turbo = m.turbo == true
@@ -342,7 +347,13 @@ DZ.register('partBegin', function(src, jobId, partId)
     if job.mode == 'street' and def.type == 'wheel' and wt and not DZ.HasTool(p, wt) then
         return { ok = false, msg = L('part_tool', Config.Tools[wt].label) }
     end
-    if not def.op and DZ.WhFree(p) <= 0 then return { ok = false, msg = L('warehouse_full') } end
+    local buildItem
+    if job.mode == 'build' then
+        buildItem = bestItem(p, def.type)
+        if not buildItem then return { ok = false, msg = L('build_missing', Parts.Types[def.type].label) } end
+    elseif not def.op and DZ.WhFree(p) <= 0 then
+        return { ok = false, msg = L('warehouse_full') }
+    end
     if def.shell then
         for _, other in pairs(job.parts) do
             if other.s == 'busy' then return { ok = false, msg = L('part_locked') } end
@@ -352,7 +363,7 @@ DZ.register('partBegin', function(src, jobId, partId)
     local spec, remaining = {}, 0
     for i, f in ipairs(def.F) do
         local rust = 0
-        if f.rust and math.random() < f.rust then rust = 0.35 + 0.65 * math.random() end
+        if f.rust and not buildItem and math.random() < f.rust then rust = 0.35 + 0.65 * math.random() end
         spec[i] = { i = i, rust = math.floor(rust * 100) / 100, done = pt.done[i] == true }
         if f.t == 'stamp' and job.vin then spec[i].ch = job.vin[i] end
         if not spec[i].done then remaining = remaining + 1 end
@@ -362,7 +373,8 @@ DZ.register('partBegin', function(src, jobId, partId)
     job.touched = os.time()
     publish(job)
     local token = DZ.token()
-    Sessions[src] = { kind = 'part', token = token, jobId = job.id, partId = partId, started = os.time(), remaining = remaining }
+    Sessions[src] = { kind = 'part', token = token, jobId = job.id, partId = partId, started = os.time(), remaining = remaining, item = buildItem and buildItem.u }
+    if buildItem then DZ.SetRes(p, buildItem.u, true) end
 
     local fx = DZ.Fx(p)
     local tdef = def.type and Parts.Types[def.type]
@@ -374,7 +386,8 @@ DZ.register('partBegin', function(src, jobId, partId)
         ok = true, token = token,
         part = {
             id = partId, label = def.label, typeLabel = tdef and tdef.label or def.label, op = def.op == true,
-            cond = pt.c, value = est, F = spec, flags = job.flags, heavy = tdef and tdef.heavy or false,
+            cond = buildItem and buildItem.c or pt.c, value = est, F = spec, flags = job.flags, heavy = tdef and tdef.heavy or false,
+            install = buildItem ~= nil, from = buildItem and buildItem.v,
         },
         ctx = {
             tools = DZ.OwnedTools(p), cons = DZ.ConsTable(src, p), fx = fx, sockets = Parts.Sockets, bits = Parts.Bits,
@@ -405,8 +418,8 @@ DZ.register('partAbort', function(src, token, done)
     if job then
         local def = Parts.ById[s.partId]
         local pt = job.parts[s.partId]
-        -- postęp zostaje jak w CMS: odkręcone śruby są odkręcone
-        readDone(def, done, pt.done)
+        -- postęp zostaje jak w CMS: odkręcone śruby są odkręcone (montaż zaczyna się od nowa)
+        if job.mode ~= 'build' then readDone(def, done, pt.done) end
         applySets(job, def, pt.done)
     end
     releasePart(src)
@@ -449,6 +462,12 @@ DZ.register('partFinish', function(src, token, report)
     for _, k in ipairs({ 'penetrant', 'disc', 'extractor' }) do
         local u = math.floor(DZ.num(used[k], 0, 99))
         if u > 0 then DZ.ConsUse(src, p, k, u) end
+    end
+    if job.mode == 'build' then
+        local r = DZ.BuildInstalled(src, p, job, s, def, report)
+        DZ.AddXP(src, p, 4)
+        DZ.Save(p)
+        return r
     end
 
     for i in ipairs(def.F) do pt.done[i] = true end
@@ -512,6 +531,14 @@ DZ.register('partFinish', function(src, token, report)
         publish(job)
     else
         local item = { t = def.type, c = cond, m = pt.m, v = job.label, cls = job.snap.class, h = os.time() }
+        -- tuning zapisany w części (do montażu „z odzysku” w innym aucie)
+        if def.mod and job.snap.mods then
+            local mv = job.snap.mods[def.mod.key]
+            if mv == true or (type(mv) == 'number' and mv >= 0) then
+                item.mk, item.mv, item.mdl = def.mod.key, mv, job.snap.name
+                if def.mod.key == 'wheels' then item.wt = job.snap.mods.wheelType end
+            end
+        end
         if job.shop and DZ.AddHeat then DZ.AddHeat(job.shop, Config.Raid.perPart, src) end
         local value = DZ.Price(p, item)
         res.value = value
@@ -580,7 +607,7 @@ end)
 -- --------------------------------------------------------------------------
 DZ.register('revinPaint', function(src, jobId, color, papers)
     local job = Jobs[tonumber(jobId) or -1]
-    if not job or job.mode ~= 'revin' or not job.revinReady then return { ok = false, msg = L('error') } end
+    if not job or (job.mode ~= 'revin' and job.mode ~= 'build') or not job.revinReady then return { ok = false, msg = L('error') } end
     if not nearEntity(src, job.veh, S.maxDistance) then return { ok = false, msg = L('too_far') } end
     local valid = false
     color = math.floor(tonumber(color) or -1)
@@ -593,7 +620,7 @@ DZ.register('revinPaint', function(src, jobId, color, papers)
         return { ok = false, msg = L('no_money', price) }
     end
     local p = DZ.Profile(src)
-    local q = DZ.num(job.stampQ, 0, 1)
+    local q = DZ.num(job.mode == 'build' and job.buildQ or job.stampQ, 0, 1)
     local plate = job.newPlate or job.plate
     SetVehicleColours(job.veh, color, color)
     SetVehicleNumberPlateText(job.veh, plate)
@@ -742,6 +769,183 @@ DZ.register('crush', function(src, netId, rawSnap)
         Bridge.Notify(src, L('crush_done', kg, pay), 'good')
     end)
     return { ok = true, time = Config.Crusher.time }
+end)
+
+-- --------------------------------------------------------------------------
+--  SKŁADAKI: montaż części z magazynu na gołą karoserię
+-- --------------------------------------------------------------------------
+local B = Config.Build
+local buildSet = {}
+for _, id in ipairs(B.parts) do buildSet[id] = true end
+
+-- najlepsza wolna część danego typu z magazynu
+function bestItem(p, typ)
+    local best
+    for _, it in ipairs(DZ.WhList(p)) do
+        if it.t == typ and not DZ.IsRes(p, it.u) and (not best or (it.c or 0) > (best.c or 0)) then best = it end
+    end
+    return best
+end
+
+local function toBuild(job)
+    job.mode = 'build'
+    local parts = {}
+    for id in pairs(job.parts) do
+        if buildSet[id] then parts[id] = { s = 'on', c = 0, m = job.parts[id].m, done = {} } end
+    end
+    job.parts = parts
+    job.flags = { ['@batteryOff'] = true, ['@oil'] = true, ['@gearOil'] = true, ['@fuel'] = true, ['@coolant'] = true }
+    job.lift = job.lift or 0
+end
+
+-- rozebrane auto zostaje na stanowisku jako karoseria do złożenia
+DZ.register('buildConvert', function(src, jobId)
+    local job = Jobs[tonumber(jobId) or -1]
+    if not B.enabled or not job or job.mode ~= 'chop' or not DZ.HasAccess(src) then return { ok = false } end
+    local p = DZ.Profile(src)
+    if DZ.Level(p) < B.minLevel then return { ok = false, msg = ('Wymaga poziomu %d.'):format(B.minLevel) } end
+    if not nearEntity(src, job.veh, S.maxDistance) then return { ok = false, msg = L('too_far') } end
+    for id, pt in pairs(job.parts) do
+        if buildSet[id] and pt.s ~= 'done' then return { ok = false, msg = L('part_blocked', Parts.ById[id].label) } end
+        if pt.s == 'busy' then return { ok = false, msg = L('part_locked') } end
+    end
+    toBuild(job)
+    publish(job)
+    return { ok = true, msg = L('build_bought') }
+end)
+
+-- kupno gołej karoserii: auto pojawia się na wolnym stanowisku
+DZ.register('buildBuy', function(src, idx)
+    if not B.enabled or not DZ.HasAccess(src) then return { ok = false } end
+    local shop = DZ.ShopAt(src)
+    if not shop then return { ok = false, msg = L('not_at_shop') } end
+    local p = DZ.Profile(src)
+    if DZ.Level(p) < B.minLevel then return { ok = false, msg = ('Wymaga poziomu %d.'):format(B.minLevel) } end
+    local sh = B.shells[tonumber(idx) or 0]
+    if not sh then return { ok = false } end
+    local bay
+    for i, b in ipairs(shop.bays) do
+        if bayFree(shop.key, i) then bay = i break end
+    end
+    if not bay then return { ok = false, msg = L('build_no_bay') } end
+    if not Bridge.RemoveMoney(src, Config.ShopAccount, sh.price, 'dp-dziupla-karoseria') then return { ok = false, msg = L('no_money', sh.price) } end
+    local b = shop.bays[bay]
+    local veh = CreateVehicleServerSetter(joaat(sh.model), 'automobile', b.x, b.y, b.z + 0.4, b.w)
+    local t = GetGameTimer() + 5000
+    while not DoesEntityExist(veh) and GetGameTimer() < t do Wait(10) end
+    if not DoesEntityExist(veh) then
+        Bridge.AddMoney(src, Config.ShopAccount, sh.price, 'dp-dziupla-karoseria')
+        return { ok = false, msg = L('error') }
+    end
+    SetVehicleDoorsLocked(veh, 2)
+    Entity(veh).state:set('dpShell', { owner = p.id, bay = bay, shop = shop.key }, true)
+    return { ok = true, net = NetworkGetNetworkIdFromEntity(veh) }
+end)
+
+-- klient robi zdjęcie kupionej karoserii (kości, drzwi) i zakłada stanowisko montażu
+DZ.register('buildStart', function(src, netId, rawSnap)
+    local veh = vehFromNet(netId)
+    local sh = veh and Entity(veh).state.dpShell
+    local p = DZ.Profile(src)
+    if not sh or sh.owner ~= p.id or ByNet[netId] then return { ok = false } end
+    local snap = snapSanitize(rawSnap, veh)
+    if not snap then return { ok = false, msg = L('suspicious') } end
+    snap.mods = {}   -- goła karoseria nie ma tuningu
+    jobSeq = jobSeq + 1
+    local job = {
+        id = jobSeq, mode = 'build', net = netId, veh = veh, shop = sh.shop, bay = sh.bay, owner = src,
+        started = os.time(), touched = os.time(), snap = snap, label = snap.label, plate = trimPlate(GetVehicleNumberPlateText(veh)),
+        parts = {}, flags = {}, lift = 0, base = GetEntityCoords(veh), heading = GetEntityHeading(veh), stampQ = {},
+    }
+    local classMult = Logic.ClassMult(snap)
+    for _, id in ipairs(Logic.BuildParts('chop', snap)) do job.parts[id] = { s = 'on', c = 0, m = classMult, done = {} } end
+    toBuild(job)
+    Jobs[job.id] = job
+    ByNet[netId] = job.id
+    FreezeEntityPosition(veh, true)
+    Entity(veh).state:set('dpShell', nil, true)
+    Entity(veh).state:set('dpStolen', true, true)   -- traktowane jak auto z listy (dealer, zgniatarka)
+    publish(job)
+    return { ok = true, msg = L('build_bought') }
+end)
+
+-- wynik montażu (wołane z partFinish)
+local function buildInstalled(src, p, job, s, def, report)
+    local pt = job.parts[s.partId]
+    local it = DZ.WhTake(p, s.item)
+    if not it then
+        pt.s = 'on'
+        return { ok = false, msg = L('build_missing', def.label) }
+    end
+    pt.c = math.floor(math.max(1, math.min(100, (it.c or 50) - partPenalty(report, DZ.Fx(p)))))
+    pt.s, pt.by, pt.from = 'done', nil, it.v
+    local left, sum, n = false, 0, 0
+    for _, pp in pairs(job.parts) do
+        if pp.s ~= 'done' then left = true end
+        sum, n = sum + (pp.c or 0), n + 1
+    end
+    local res = { ok = true, cond = pt.c, msg = L('build_installed', def.label, pt.c, it.v or '?') }
+    if not left then
+        job.buildQ = n > 0 and sum / n / 100 or 0.5
+        job.revinReady = true
+        local L3 = 'ABCDEFGHJKLMNPRSTUVWXYZ'
+        local function ch() local k = math.random(#L3) return L3:sub(k, k) end
+        job.newPlate = ('%d%d%s%s%s%d%d%d'):format(math.random(0, 9), math.random(0, 9), ch(), ch(), ch(), math.random(0, 9), math.random(0, 9), math.random(0, 9))
+        SetVehicleNumberPlateText(job.veh, job.newPlate)
+        DZ.AddXP(src, p, B.xp)
+        res.msg = L('build_done', math.floor(job.buildQ * 100))
+    end
+    publish(job)
+    return res
+end
+DZ.BuildInstalled = buildInstalled
+
+-- --------------------------------------------------------------------------
+--  TUNING Z ODZYSKU: części z tuningiem z magazynu montowane we własnym aucie
+-- --------------------------------------------------------------------------
+local TU = Config.Tuning
+
+local function tuneFits(it, model)
+    if not it.mk then return false end
+    if TU.sameModel[it.mk] and (it.mdl or ''):lower() ~= (model or ''):lower() then return false end
+    return true
+end
+
+local function tuneVehicle(src, netId)
+    local veh = vehFromNet(netId)
+    if not veh or GetPedInVehicleSeat(veh, -1) ~= GetPlayerPed(src) or ByNet[netId] or DZ.IsScriptVehicle(veh) then return nil end
+    local shop = DZ.ShopAt(src)
+    if not shop then return nil end
+    for _, b in ipairs(shop.bays) do
+        if #(GetEntityCoords(veh).xy - b.xy) <= Config.Bay.radius + 1.0 then return veh end
+    end
+end
+
+DZ.register('tuneList', function(src, netId, model)
+    if not TU.enabled or not tuneVehicle(src, netId) then return { ok = false, msg = L('chop_not_vehicle') } end
+    local p = DZ.Profile(src)
+    local out = {}
+    for _, it in ipairs(DZ.WhList(p)) do
+        if not DZ.IsRes(p, it.u) and tuneFits(it, model) then
+            local v = DZ.ItemView(p, it)
+            v.mk, v.mv = it.mk, it.mv
+            out[#out + 1] = v
+        end
+    end
+    if #out == 0 then return { ok = false, msg = L('tune_none') } end
+    return { ok = true, items = out }
+end)
+
+DZ.register('tuneApply', function(src, netId, uid, model)
+    if not TU.enabled or not tuneVehicle(src, netId) then return { ok = false, msg = L('chop_not_vehicle') } end
+    local p = DZ.Profile(src)
+    local it = DZ.WhFind(p, tonumber(uid))
+    if not it or DZ.IsRes(p, it.u) or not tuneFits(it, model) then return { ok = false, msg = L('tune_none') } end
+    local taken = DZ.WhTake(p, it.u)
+    if not taken then return { ok = false, msg = L('error') } end
+    DZ.Save(p)
+    DZ.Log('shop', src, 'Tuning z odzysku', ('%s (%s=%s)'):format(DZ.ItemLabel(it), it.mk, tostring(it.mv)), 'info')
+    return { ok = true, mk = it.mk, mv = it.mv, wt = it.wt, msg = L('tune_done', DZ.ItemLabel(it)) }
 end)
 
 -- --------------------------------------------------------------------------

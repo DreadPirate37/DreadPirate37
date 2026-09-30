@@ -120,6 +120,7 @@ function Logic.Blockers(def, job, snap)
     local miss = {}
     local req = def.requires
     if type(req) == 'function' then req = req(snap or {}) end
+    if job.mode == 'build' then req = nil end   -- montaż: kolejność dowolna, liczy się tylko podnośnik
     for _, r in ipairs(req or {}) do
         if r:sub(1, 1) == '@' then
             if not (job.flags and job.flags[r]) then miss[#miss + 1] = Parts.Flags[r] or r end

@@ -146,6 +146,28 @@ np. „Boom na katalizatory +45%”. Popyt jest wspólny dla całego serwera i z
 
 ---
 
+## Składaki (Car Mechanic na odwrót)
+Od poziomu 4. Są dwa sposoby na gołą karoserię:
+- **kup ją** w ChopNecie (Sklep → Gołe karoserie), a pojawi się na wolnym stanowisku,
+- albo rozbierz auto z listy do zera i zamiast ciąć karoserię wciśnij **B**, żeby zostawić ją na składaka.
+
+Potem montujesz części z magazynu (dowolnego auta, wybierana jest najlepsza sztuka danego typu).
+Montaż to ta sama minigra co demontaż, tylko w drugą stronę, a zamontowane części od razu widać na aucie.
+Gdy wszystko siedzi, **E** otwiera lakiernię i papiery. Gotowe auto sprzedajesz handlarzowi
+(albo zatrzymujesz, jeśli serwer na to pozwala). Stan składaka = średni stan zamontowanych części.
+
+## Tuning z odzysku
+Części zdjęte z tuningowanych aut pamiętają tuning (poziom silnika, turbo, hamulce, zawieszenie, skrzynia,
+felgi z typem, ksenony, spojler, zderzaki, maska, wydech; w magazynie mają znaczek „tuning”). Wjedź **własnym**
+autem na stanowisko i wciśnij **G**, żeby zamontować taką część. Mechanika pasuje do każdego auta, a blacharka
+(spojler, zderzaki, maska, wydech) tylko do tego samego modelu. Zmiany zapisze garaż tak jak każdy inny tuning.
+
+## Giełda (aukcje)
+Zakładka **Giełda** w ChopNecie: wystawiasz część z magazynu z ceną wywoławczą i czasem (30 min / 1 h / 3 h),
+a inni licytują (przebicie min. 5%; oferta w ostatniej minucie przedłuża aukcję). Pieniądze za przebitą ofertę
+wracają od razu. Po końcu aukcji część trafia do magazynu zwycięzcy, a sprzedający dostaje kwotę minus prowizję.
+Jeśli ktoś jest offline albo ma pełny magazyn, pieniądze i części czekają do następnego otwarcia ChopNetu.
+
 ## Ekipa
 Za `Config.Crew.createPrice` (od poziomu 3) zakładasz ekipę w ChopNecie (zakładka **Ekipa**). Daje ona:
 - **wspólny magazyn i regały** (w trybie ox: wspólny stash ekipy),

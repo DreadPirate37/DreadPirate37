@@ -103,6 +103,7 @@ local LaptopActions = {
     exportAccept = 'exportAccept', exportCancel = 'exportCancel', tipBuy = 'tipBuy',
     crewCreate = 'crewCreate', crewInvite = 'crewInvite', crewAccept = 'crewAccept', crewKick = 'crewKick',
     crewPromote = 'crewPromote', crewLeave = 'crewLeave', crewBank = 'crewBank', raidBribe = 'raidBribe',
+    buildBuy = 'buildBuy', auctionList = 'auctionList', auctionBid = 'auctionBid', auctionCancel = 'auctionCancel',
 }
 
 RegisterNUICallback('laptop', function(data, cb)
@@ -122,8 +123,26 @@ RegisterNUICallback('laptop', function(data, cb)
         end
         local name = LaptopActions[a]
         if not name then return cb({ ok = false }) end
-        local r = D.Callback(name, data.arg, data.arg2)
+        local r = D.Callback(name, data.arg, data.arg2, data.arg3)
         if r and r.data then decorate(r.data) end
+        if a == 'buildBuy' and r and r.ok and r.net then
+            -- karoseria na stanowisku: zdjęcie modelu i założenie stanowiska montażu
+            CreateThread(function()
+                local t, veh = GetGameTimer() + 8000, nil
+                while GetGameTimer() < t do
+                    if NetworkDoesNetworkIdExist(r.net) then
+                        veh = NetToVeh(r.net)
+                        if veh ~= 0 and DoesEntityExist(veh) then break end
+                    end
+                    Wait(100)
+                end
+                if veh and veh ~= 0 then
+                    local b = D.Callback('buildStart', r.net, D.Snapshot(veh))
+                    if b and b.msg then D.Notify(b.msg, b.ok and 'good' or 'bad', 8000) end
+                end
+            end)
+            r.msg = r.msg or L('build_bought')
+        end
         cb(r or { ok = false, msg = L('error') })
     end)
 end)
@@ -282,8 +301,10 @@ CreateThread(function()
                 end
                 if not busyVeh then
                     if nearBay == 'chop' then
-                        D.Help(L('help_bay'))
-                        if IsControlJustReleased(0, 38) then startBay(veh, 'chopStart') end
+                        local stolen = Entity(veh).state.dpStolen
+                        D.Help(stolen and L('help_bay') or (Config.Tuning.enabled and L('help_tune') or L('help_bay')))
+                        if stolen and IsControlJustReleased(0, 38) then startBay(veh, 'chopStart') end
+                        if not stolen and Config.Tuning.enabled and IsControlJustReleased(0, 47) then CreateThread(function() D.OpenTune(veh) end) end
                     elseif nearBay == 'revin' then
                         D.Help(L('help_vinbay'))
                         if IsControlJustReleased(0, 38) then startBay(veh, 'revinStart') end
@@ -389,3 +410,58 @@ for _, shop in ipairs(Config.Shops) do
         end
     end)
 end
+
+-- --------------------------------------------------------------------------
+--  Tuning z odzysku: części z tuningiem z magazynu do własnego auta
+-- --------------------------------------------------------------------------
+local tuneVeh
+local MODS = { spoiler = 0, bumperF = 1, bumperR = 2, exhaust = 4, hood = 7, engine = 11, brakes = 12, trans = 13, susp = 15, wheels = 23 }
+local TOGGLES = { turbo = 18, xenon = 22 }
+
+function D.OpenTune(veh)
+    if D.busy then return end
+    local model = GetDisplayNameFromVehicleModel(GetEntityModel(veh))
+    local r = D.Callback('tuneList', NetworkGetNetworkIdFromEntity(veh), model)
+    if not r or not r.ok then return D.Notify(r and r.msg or L('error'), 'bad') end
+    D.busy = true
+    tuneVeh = veh
+    SetNuiFocus(true, true)
+    SendNUIMessage({ action = 'tunePick', items = r.items })
+end
+
+RegisterNUICallback('tune', function(data, cb)
+    local veh = tuneVeh
+    if data.cancel or not veh then
+        SetNuiFocus(false, false)
+        D.busy = false
+        tuneVeh = nil
+        return cb({ ok = true })
+    end
+    CreateThread(function()
+        local model = GetDisplayNameFromVehicleModel(GetEntityModel(veh))
+        local r = D.Callback('tuneApply', NetworkGetNetworkIdFromEntity(veh), tonumber(data.uid), model)
+        SetNuiFocus(false, false)
+        if r and r.ok then
+            cb({ ok = true })
+            FreezeEntityPosition(veh, true)
+            PlaySoundFrontend(-1, 'Hit_1', 'LONG_PLAYER_SWITCH_SOUNDS', true)
+            Wait(Config.Tuning.time)
+            FreezeEntityPosition(veh, false)
+            if D.Control(veh) then
+                SetVehicleModKit(veh, 0)
+                if TOGGLES[r.mk] then
+                    ToggleVehicleMod(veh, TOGGLES[r.mk], true)
+                elseif MODS[r.mk] then
+                    if r.mk == 'wheels' and r.wt then SetVehicleWheelType(veh, r.wt) end
+                    SetVehicleMod(veh, MODS[r.mk], tonumber(r.mv) or 0, false)
+                end
+            end
+            D.Notify(r.msg, 'good', 7000)
+        else
+            cb({ ok = false })
+            D.Notify(r and r.msg or L('error'), 'bad')
+        end
+        D.busy = false
+        tuneVeh = nil
+    end)
+end)

@@ -20,6 +20,7 @@
       case 'laptopOpen': W.Laptop.open(d.data, d.tab); break;
       case 'laptopClose': W.Laptop.close(true); break;
       case 'paintOpen': W.Paint.open(d.colors, d.paint, d.papers); break;
+      case 'tunePick': W.TunePick.open(d.items); break;
       case 'bayHud': W.BayHud.update(d.show, d.data); break;
       case 'forceClose':
         if (W.Part.active) W.Part.close();
@@ -33,7 +34,7 @@
   window.addEventListener('keydown', e => {
     if (e.code !== 'Escape') return;
     if (!W.$('modal').classList.contains('hidden')) {
-      const c = W.$('bpCancel') || W.$('ppCancel');
+      const c = W.$('bpCancel') || W.$('ppCancel') || W.$('tpCancel');
       if (c) c.click();
       return;
     }
@@ -139,6 +140,9 @@
         { id: 'a2', tier: 1, label: 'Asea', model: 'asea', reward: 720, xp: 60, time: 1900, risk: { alarm: 0.3, tracker: 0 }, area: { x: 0, y: 0, z: 0 }, zone: 'La Mesa' }] },
       orders: { offers: [{ id: 'o1', client: 'Tuner z Vespucci', pay: 1980, lines: [{ t: 'wheel', n: 4, min: 60, label: 'Koło' }, { t: 'seat', n: 1, min: 45, label: 'Fotel' }], have: [1, 1], time: 2400 }] },
       exports: { minLevel: 2, locked: false, offers: [{ id: 'e1', label: 'Sportowe', pay: 5800, time: 1800, minHealth: 0.7 }] },
+      auction: { fee: 0.05, minPrice: 50, durations: [1800, 3600, 10800], waiting: 0, list: [
+        { id: '1', label: 'Turbosprężarka', cat: 'Silnik i napęd', cond: 81, vehicle: 'Jester', fence: 720, tuning: true, start: 500, bid: 900, lead: false, mine: false, seller: 'Zbyszek', left: 1420, min: 945 },
+        { id: '2', label: 'Felga', cat: 'Koła i zawieszenie', cond: 66, vehicle: 'Sultan', fence: 110, start: 80, left: 3300, min: 80, mine: true, seller: 'Ty' }] },
       raid: { heat: 74, threshold: 100, shop: 'Dziupla – złomowisko La Puerta', bribe: 6000, canBribe: true },
       crew: { enabled: true, price: 25000, maxMembers: 8, cut: 0.1, crew: { name: 'Dziki Zachód', level: 2, bank: 14200, earned: 88100, priceBonus: 0.03, myRole: 'boss',
         members: [{ id: 'a', name: 'Ty', role: 'boss', roleLabel: 'Szef', me: true }, { id: 'b', name: 'Zbyszek', role: 'member', roleLabel: 'Członek' }] } },

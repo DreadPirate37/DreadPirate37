@@ -403,12 +403,53 @@ Config.Revin = {
 }
 
 -- ==========================================================================
+--  SKŁADAKI (Car Mechanic na odwrót) i TUNING Z ODZYSKU
+-- ==========================================================================
+Config.Build = {
+    enabled = true,
+    minLevel = 4,
+    -- części, które trzeba zamontować (brane z magazynu, dowolne auto; nieistniejące w modelu są pomijane)
+    parts = {
+        'door_lf', 'door_rf', 'door_lr', 'door_rr', 'bonnet', 'boot', 'bumper_f', 'bumper_r',
+        'wheel_lf', 'wheel_rf', 'wheel_lr', 'wheel_rr', 'headlight_l', 'headlight_r', 'taillight_l', 'taillight_r',
+        'engine', 'gearbox', 'radiator', 'battery', 'ecu', 'fueltank', 'exhaust', 'catalyst',
+        'seat_lf', 'seat_rf', 'steering', 'windscreen',
+    },
+    -- gołe karoserie do kupienia w ChopNecie (spawn na wolnym stanowisku)
+    shells = {
+        { model = 'blista', price = 1800 }, { model = 'sultan', price = 3200 }, { model = 'buffalo', price = 3600 },
+        { model = 'jester', price = 7500 }, { model = 'comet2', price = 8200 },
+    },
+    xp = 120,                      -- XP za złożone auto
+}
+
+Config.Tuning = {
+    enabled = true,
+    time = 6000,                   -- czas montażu jednej części
+    -- części „wizualne” pasują tylko do tego samego modelu auta
+    sameModel = { spoiler = true, bumperF = true, bumperR = true, exhaust = true, hood = true },
+}
+
+-- ==========================================================================
 --  ZGNIATARKA
 -- ==========================================================================
 Config.Crusher = {
     kgBase = { [0] = 900, [1] = 1200, [2] = 1800, [3] = 1200, [4] = 1400, [5] = 1100, [6] = 1150, [7] = 1250, [9] = 1700, [11] = 2000, [12] = 1900, [20] = 3500, [22] = 700 },
     time = 9000,
     xp = 15,
+}
+
+-- ==========================================================================
+--  GIEŁDA CZĘŚCI (aukcje między graczami)
+-- ==========================================================================
+Config.Auction = {
+    enabled = true,
+    requireShop = false,           -- true = wystawiać tylko w dziupli (licytować można zawsze)
+    fee = 0.05,                    -- prowizja giełdy od ceny sprzedaży
+    minPrice = 50,
+    minStep = 0.05, minStepAbs = 10, -- przebicie o min. 5% (i min. 10$)
+    durations = { 1800, 3600, 10800 }, -- 30 min / 1 h / 3 h
+    maxPerPlayer = 5,
 }
 
 -- ==========================================================================
