@@ -46,8 +46,10 @@ Config.UI = {
 --  PRZEDMIOTY
 -- ==========================================================================
 Config.Items = {
-    lockpick   = { 'lockpick', 'advancedlockpick' },   -- pierwszy dostępny zostanie użyty
-    advanced   = 'advancedlockpick',                   -- zaawansowany: łatwiejszy i trwalszy
+    diy        = { 'bobbypin' },                       -- spinka (ze śrubokrętem) – proste zamki
+    lockpick   = { 'lockpick', 'advancedlockpick' },   -- wytrych – zamki z zapadkami (działa też na proste)
+    advanced   = 'advancedlockpick',                   -- zaawansowany: zapadki dłużej „stoją”
+    round      = { 'round_lockpick' },                 -- wytrych okrągły – zamki okrągłe
     hackDevice = { 'hacking_device', 'electronickit' },
     thermite   = 'thermite',
     ram        = 'police_ram',                         -- nil = taran nie wymaga przedmiotu
@@ -65,20 +67,27 @@ Config.Keycards = {
 --  WYTRYCH (minigra z zapadkami)
 -- ==========================================================================
 Config.Lockpick = {
-    -- 'front' – zbliżenie na zamek: szukanie punktu wytrychem + napinacz (domyślne)
-    -- 'pins'  – przekrój wkładki, podnoszenie zapadek jedna po drugiej
-    -- 'mixed' – front do trudności 4, pins przy 5
-    style = 'front',
-    stagesByDifficulty = { 1, 1, 2, 2, 3 },   -- ile zapadek (etapów) w trybie front
-    camera = true,                 -- kamera najeżdża na zamek podczas minigry
-    cameraDistance = 0.55,         -- odległość kamery od zamka [m]
+    -- Narzędzie zależy od zamka (jak w symulatorach włamywacza):
+    --   trudność 1–diyMaxDifficulty  → prosty zamek: SPINKA + ŚRUBOKRĘT (albo zwykły wytrych)
+    --   wyższa trudność              → zamek z zapadkami: WYTRYCH (przekrój, 5 zapadek)
+    --   lockModel = 'round'          → zamek okrągły: WYTRYCH OKRĄGŁY
+    diyMaxDifficulty = 2,
+    diy = {
+        maxFails = { 5, 4 },                 -- nietrafione próby, po których spinka pęka (wg trudności)
+    },
+    pins = {                                 -- wg trudności 1–5 (dla wytrycha i wytrycha okrągłego)
+        count    = { 5, 5, 5, 5, 6 },        -- zapadki w zwykłym zamku (okrągły ma zawsze 7)
+        knockMax = { 1, 2, 2, 3, 3 },        -- ile razy maks. trzeba stuknąć, zanim sprężyna puści
+        stall    = { 1.0, 0.9, 0.75, 0.6, 0.5 }, -- ile sekund zapadka stoi na dnie
+        spring   = { 0.25, 0.3, 0.35, 0.42, 0.5 }, -- jak szybko sprężyna wypycha zapadkę
+        maxFails = 4,                        -- kliknięcia „zablokuj” w złym momencie, po których wytrych pęka
+    },
+    advancedBonus = 0.25,                    -- zaawansowany wytrych: dłuższe „stanie” zapadki
+    camera = true,                           -- kamera najeżdża na zamek podczas minigry
+    cameraDistance = 0.55,
     cameraFov = 42.0,
-    pinsByDifficulty = { 3, 4, 5, 6, 7 },
-    breakChance = 0.35,            -- szansa na złamanie wytrycha przy porażce
-    advancedBreakChance = 0.12,
-    minSeconds = 3,                -- serwer odrzuci szybsze „sukcesy”
-    timeLimit = 60,
-    alarmChance = 0.25,            -- szansa na cichy alarm przy nieudanej próbie
+    minSeconds = 2,                          -- serwer odrzuci szybsze „sukcesy”
+    alarmOnBreak = 0.35,                     -- szansa na cichy alarm, gdy narzędzie pęknie
 }
 
 -- ==========================================================================
@@ -176,7 +185,7 @@ Config.Defaults = {
 --  security  : 'standard' (klucz/uprawnienia) | 'keypad' (PIN) | 'card' (karta) | 'bio' (odcisk palca)
 --  access    : jobs = { praca = minimalny_grade }, gangs = {...}, items = { 'klucz' }, public = true
 --  lockpick / hack : trudność 1–5 (0 = wyłączone)
---  lockModel : 'euro' (wkładka w szyldzie) | 'rim' (rozeta) | 'padlock' (kłódka) – wygląd zamka w minigrze
+--  lockModel : 'euro' (wkładka w szyldzie) | 'rim' (rozeta) | 'padlock' (kłódka) | 'round' (zamek okrągły)
 --  schedule  : { open = '08:00', close = '22:00' } – w tych godzinach drzwi są otwarte (czas serwera)
 -- ==========================================================================
 Config.Doors = {

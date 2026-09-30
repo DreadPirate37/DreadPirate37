@@ -6,7 +6,7 @@ Door = {}
 Door.Types = { single = true, double = true, sliding = true, garage = true }
 Door.Security = { standard = true, keypad = true, card = true, bio = true }
 Door.Electronic = { keypad = true, card = true, bio = true }
-Door.LockModels = { euro = true, rim = true, padlock = true }
+Door.LockModels = { euro = true, rim = true, padlock = true, round = true }
 
 local function num(v, def, lo, hi)
     v = tonumber(v) or def

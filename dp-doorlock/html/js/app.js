@@ -151,7 +151,10 @@
 
   const keyHolders = [{ id: 'char1:ff00aa11', label: 'Anna Zielińska' }, { id: 'char1:bb22cc33', label: 'Tomasz Wiśniewski' }];
   const openKeypad = () => DL.Keypad.open({ id: 4, name: 'Brama garażu', group: 'MRPD', mode: 'use' });
-  const openLockpick = model => DL.Lockpick.open({ seed: Math.floor(Math.random() * 1e9), pins: 5, difficulty: 3, time: 60, model: typeof model === 'string' ? model : qs.get('model') || 'euro', style: qs.get('style') || 'front' });
+  const openLockpick = (mode, model) => DL.Lockpick.open({
+    seed: Math.floor(Math.random() * 1e9), difficulty: 3, maxFails: 4, knockMax: 2, stall: 0.8, spring: 0.35,
+    mode: typeof mode === 'string' ? mode : qs.get('mode') || 'diy', model: model || qs.get('model') || undefined,
+  });
   const openKeys = () => DL.Keys.open({ id: 2, name: 'Gabinet kapitana', holders: keyHolders, logs: LOGS });
   const openAdmin = () => DL.Admin.open(adminData());
 
@@ -165,10 +168,11 @@
   btn('card', 'Karta', () => DL.Reader.open({ id: 3, name: 'Zbrojownia', group: 'MRPD', kind: 'card', level: 3 }));
   btn('finger', 'Biometria', () => DL.Reader.open({ id: 2, name: 'Gabinet kapitana', group: 'MRPD', kind: 'bio' }));
   sep();
-  btn('pick', 'Wytrych', () => openLockpick('euro'));
-  btn('door', 'Rozeta', () => openLockpick('rim'));
-  btn('lock', 'Kłódka', () => openLockpick('padlock'));
-  btn('layers', 'Zapadki', () => DL.Lockpick.open({ style: 'pins', seed: Math.floor(Math.random() * 1e9), pins: 5, difficulty: 3, time: 60 }));
+  btn('pick', 'Spinka', () => openLockpick('diy', 'euro'));
+  btn('door', 'Rozeta', () => openLockpick('diy', 'rim'));
+  btn('lock', 'Kłódka', () => openLockpick('diy', 'padlock'));
+  btn('keys', 'Wytrych', () => openLockpick('standard'));
+  btn('target', 'Okrągły', () => openLockpick('round'));
   btn('chip', 'Hakowanie', () => DL.Hack.open({ seed: Math.floor(Math.random() * 1e9), difficulty: 3, stages: 2, time: 45 }));
   btn('fire', 'Termit', () => { DL.Progress.start({ label: 'Termit się pali…', icon: 'fire', ms: 5000 }); DL.Audio.play('sizzle', 0.6, 5000); setTimeout(() => { DL.Progress.end(true); DL.Chips.state(3, { l: false, b: true, a: true }); DL.toast('Zamek przepalony!', 'warn'); }, 5000); });
   sep();

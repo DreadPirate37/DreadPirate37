@@ -78,8 +78,8 @@ DL.Register('menu', function(src, id)
 
     if locked and not broken then
         if d.lockpick > 0 and d.security == 'standard' then
-            local has = Bridge.FirstItem(src, Config.Items.lockpick)
-            add('lockpick', 'pick', L('m_lockpick'), has and L('difficulty', d.lockpick) or L('need_item'), not has, 'crime')
+            local has, _, label = DL.LockTool(src, d)
+            add('lockpick', 'pick', L(label), has and L('difficulty', d.lockpick) or L('need_item'), not has, 'crime')
         end
         if d.hack > 0 and Door.Electronic[d.security] then
             local has = Bridge.FirstItem(src, Config.Items.hackDevice)
@@ -148,26 +148,48 @@ end)
 -- --------------------------------------------------------------------------
 --  Wytrych
 -- --------------------------------------------------------------------------
+--- Jakie narzędzie i jaka minigra dla tych drzwi (jak w symulatorach włamywacza)
+local function lockTool(src, d)
+    local C = Config.Lockpick
+    if d.lockModel == 'round' then
+        return Bridge.FirstItem(src, Config.Items.round), 'round', 'm_lockpick_round'
+    end
+    if d.lockpick <= C.diyMaxDifficulty then
+        local item = Bridge.FirstItem(src, Config.Items.diy)
+        if item then return item, 'diy', 'm_lockpick_diy' end
+        item = Bridge.FirstItem(src, Config.Items.lockpick)
+        return item, item and 'diy' or nil, 'm_lockpick_diy'
+    end
+    return Bridge.FirstItem(src, Config.Items.lockpick), 'standard', 'm_lockpick'
+end
+DL.LockTool = lockTool
+
 DL.Register('lockpick_start', function(src, id)
     local d, st, id2 = door(id)
     if not d or d.lockpick == 0 or d.security ~= 'standard' then return { ok = false, msg = L('cant_do') } end
     if not DL.Near(src, id2) then return { ok = false, msg = L('too_far') } end
     if not st.locked or st.broken then return { ok = false, msg = L('already_open') } end
-    local item = Bridge.FirstItem(src, Config.Items.lockpick)
+    local item, mode = lockTool(src, d)
     if not item then return { ok = false, msg = L('need_item') } end
+    local C, diff = Config.Lockpick, d.lockpick
     local advanced = item == Config.Items.advanced
-    local diff = math.max(1, d.lockpick - (advanced and 1 or 0))
-    local s = startSession(src, 'lockpick', id2, { item = item, advanced = advanced })
-    local style = Config.Lockpick.style
-    if style == 'mixed' then style = diff >= 5 and 'pins' or 'front' end
-    return {
-        ok = true, token = s.token, difficulty = diff, advanced = advanced,
-        style = style, model = d.lockModel, stages = Config.Lockpick.stagesByDifficulty[diff],
-        pins = Config.Lockpick.pinsByDifficulty[diff], time = Config.Lockpick.timeLimit,
-        seed = math.random(1, 2 ^ 30),
+    local s = startSession(src, 'lockpick', id2, { item = item })
+    local res = {
+        ok = true, token = s.token, mode = mode, model = d.lockModel, difficulty = diff,
+        advanced = advanced, seed = math.random(1, 2 ^ 30),
     }
+    if mode == 'diy' then
+        res.maxFails = C.diy.maxFails[math.min(diff, #C.diy.maxFails)]
+    else
+        local P = C.pins
+        res.pins = mode == 'round' and 7 or P.count[diff]
+        res.knockMax, res.spring, res.maxFails = P.knockMax[diff], P.spring[diff], P.maxFails
+        res.stall = P.stall[diff] + (advanced and C.advancedBonus or 0)
+    end
+    return res
 end)
 
+-- porażka kosztuje tylko wtedy, gdy narzędzie pękło w minigrze; wyjście (ESC) jest darmowe
 DL.Register('lockpick_finish', function(src, id, tok, success, snapped)
     local d, _, id2 = door(id)
     if not d then return { ok = false } end
@@ -178,12 +200,11 @@ DL.Register('lockpick_finish', function(src, id, tok, success, snapped)
         DL.SetLocked(id2, false, src, 'lockpick')
         return { ok = true, msg = L('picked') }
     end
+    if snapped ~= true then return { ok = true, failed = true } end
     S.Log(id2, src, 'lockpick', 'fail')
-    -- pęknięcie widoczne w minigrze zawsze zabiera wytrych (klient może zaszkodzić tylko sobie)
-    local broke = snapped == true or math.random() < (s.advanced and Config.Lockpick.advancedBreakChance or Config.Lockpick.breakChance)
-    if broke then Bridge.RemoveItem(src, s.item, 1) end
-    if d.alarm and math.random() < Config.Lockpick.alarmChance then DL.Alarm(id2, src, 'lockpick') end
-    return { ok = true, failed = true, broke = broke, msg = broke and L('pick_broke') or L('pick_failed') }
+    Bridge.RemoveItem(src, s.item, 1)
+    if d.alarm and math.random() < Config.Lockpick.alarmOnBreak then DL.Alarm(id2, src, 'lockpick') end
+    return { ok = true, failed = true, broke = true, msg = L('pick_broke') }
 end)
 
 -- --------------------------------------------------------------------------

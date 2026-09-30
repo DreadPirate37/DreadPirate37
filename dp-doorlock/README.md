@@ -15,8 +15,9 @@ Zasób był pisany z myślą o **wydajności** (szczegóły w sekcji [Wydajnoś�
 |---|---|
 | ![Znaczniki](docs/main.jpg) | ![Menu radialne](docs/radial.jpg) |
 | ![Klawiatura PIN](docs/keypad.jpg) | ![Czytnik kart](docs/card.jpg) |
-| ![Wytrych – wkładka](docs/lockpick.jpg) | ![Wytrych – kłódka](docs/lockpick-padlock.jpg) |
-| ![Wytrych – rozeta](docs/lockpick-rim.jpg) | ![Biometria](docs/bio.jpg) |
+| ![Spinka i śrubokręt](docs/lockpick.jpg) | ![Wytrych – zapadki](docs/lockpick-pins.jpg) |
+| ![Wytrych okrągły](docs/lockpick-round.jpg) | ![Kłódka](docs/lockpick-padlock.jpg) |
+| ![Biometria](docs/bio.jpg) | |
 | ![Hakowanie](docs/hack.jpg) | ![Klucze cyfrowe](docs/keys.jpg) |
 | ![Panel admina](docs/admin.jpg) | ![Dostęp](docs/admin-access.jpg) |
 
@@ -51,7 +52,7 @@ Menu radialne w stylu koła broni z GTA: wybór kątem myszy, klawiszami 1–9 a
 | Otwórz / zamknij | z dostępem | ścieżka zależna od zabezpieczenia |
 | Zapukaj | każdy | stukanie słyszą gracze w promieniu 14 m |
 | Zadzwoń | każdy (jeśli drzwi mają dzwonek) | ding-dong + powiadomienie dla osób z dostępem w pobliżu |
-| Wytrych | przestępcy | zbliżenie na zamek, szukanie punktu i napinacz; trudność 1–5 |
+| Wytrych | przestępcy | spinka + śrubokręt, wytrych lub wytrych okrągły – zależnie od zamka |
 | Włam do czytnika | przestępcy | minigra synchronizacji sygnału (zamki elektroniczne) |
 | Ładunek termitowy | przestępcy | 12 s palenia z efektem cząsteczkowym → zamek przepalony + alarm |
 | Wyważ taranem | służby | kopnięcie/taran → drzwi wyłamane |
@@ -62,13 +63,15 @@ Menu radialne w stylu koła broni z GTA: wybór kątem myszy, klawiszami 1–9 a
 | Edytuj drzwi | admin | otwiera panel na tych drzwiach |
 
 ### Minigry
-- **Wytrych (tryb `front`, domyślny).** Zbliżenie na zamek jak w symulatorach włamywacza, a kamera w grze najeżdża na klamkę. Trzy modele zamków rysowane od zera:
-  - **wkładka europejska w szyldzie** ze szczotkowanej stali, z klamką, na stalowych drzwiach;
-  - **wkładka w chromowanej rozecie** na drewnianych drzwiach ze słojami;
-  - **kłódka** z laminowanej stali na kracie celi. Po otwarciu kabłąk wyskakuje.
+- **Otwieranie zamków** – przebieg i mechanika jak w Thief Simulator, grafika własna. Kamera w grze najeżdża na zamek, a minigra jest pełnoekranowa i przezroczysta, więc za zamkiem widać prawdziwe drzwi. HUD jest minimalny: stan narzędzia w lewym górnym rogu, klawisze w prawym dolnym. Nie ma limitu czasu. Narzędzie dobiera się do zamku samo:
 
-  Myszą obracasz wytrych wokół kanału klucza, a LPM, `D` lub spacją przekręcasz bębenek napinaczem. Im bliżej właściwego punktu, tym dalej bębenek się obraca. Poza nim zamek się blokuje, drga i skrzypi, wytrych się wygina i w końcu pęka (odłamek spada). Na wyższych poziomach jest 2–3 zapadek, każda z nowym punktem. Pęknięcie w minigrze zawsze zabiera wytrych z ekwipunku.
-- **Wytrych (tryb `pins`).** Przekrój wkładki: podnosisz zapadki jedna po drugiej do linii ścinania. Naraz „wiąże” tylko jedna. Tryb `mixed` używa go przy trudności 5.
+  | Zamek | Narzędzie (przedmiot) | Mechanika |
+  |---|---|---|
+  | prosty (trudność 1–2) | **spinka + śrubokręt** (`bobbypin`, działa też zwykły wytrych) | Mysz ustawia kąt spinki, `D`/LPM przekręca śrubokrętem. Im bliżej właściwego kąta, tym dalej obraca się bębenek. Zablokowanie to nietrafiona próba; po 4–5 próbach spinka pęka |
+  | z zapadkami (trudność 3–5) | **wytrych** (`lockpick`, `advancedlockpick`) | Przekrój wkładki, zapadki w kształcie pastylek. `A`/`D` wybiera zapadkę, `S`/PPM/kółko stuka (sprężyna czasem odbija), a na dnie zapadka chwilę **stoi**. Wtedy `LPM`/`SPACJA` ją blokuje. 4 kliknięcia w złym momencie i wytrych pęka |
+  | okrągły (`lockModel = 'round'`) | **wytrych okrągły** (`round_lockpick`) | 7 zapadek w kole, ta sama zasada, z podglądem przekroju wybranej zapadki |
+
+  Wyjście klawiszem `ESC` jest darmowe (licznik błędów się zeruje). Tracisz narzędzie tylko wtedy, gdy pęknie. Modele zamków: wkładka w szyldzie z klamką, wkładka w rozecie, kłódka (kabłąk wyskakuje) i zamek okrągły.
 - **Hakowanie.** Oscyloskop z sygnałem czytnika. Trzema pokrętłami (częstotliwość, amplituda, faza) dopasowujesz swoją falę. Po zatrzaśnięciu 1–3 etapów zamek puszcza. Na wyższych poziomach sygnał dryfuje i szumi. Porażka blokuje czytnik dla gracza i może włączyć alarm.
 
 ### Automatyka
@@ -124,7 +127,7 @@ Wszystkie parametry są w `Config.Perf`.
    ensure dp-doorlock
    add_ace group.admin dp-doorlock.admin allow
    ```
-3. Dodaj przedmioty do ekwipunku (nazwy w `Config.Items` i `Config.Keycards`): `lockpick`, `advancedlockpick`, `hacking_device`, `thermite`, `police_ram`, `keycard_green|blue|red|black`.
+3. Dodaj przedmioty do ekwipunku (nazwy w `Config.Items` i `Config.Keycards`): `bobbypin`, `lockpick`, `advancedlockpick`, `round_lockpick`, `hacking_device`, `thermite`, `police_ram`, `keycard_green|blue|red|black`.
 4. Drzwi z `Config.Doors` zostaną dodane przy pierwszym starcie. Kolejne dodawaj w grze komendą `/doorlock` → **Dodaj drzwi celownikiem**.
 5. Współrzędne w `config.lua` dotyczą vanilla GTA. Przy MLO dodaj drzwi celownikiem.
 
