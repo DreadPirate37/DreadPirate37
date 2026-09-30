@@ -151,8 +151,9 @@ end
 local function closeSession(result)
     if not sess then return end
     local s = sess
-    sess = nil
     stopSparks()
+    sess = nil
+    if D.ClearProps then D.ClearProps(s.props) end
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'partClose' })
     if s.cam then
@@ -214,6 +215,7 @@ function D.StartPart(veh, st, partId)
 
     sess = {
         veh = veh, st = st, def = def, loc = loc, token = r.token, cam = cam, fires = {},
+        props = D.PartProps and D.PartProps(veh, def, anchorW) or {},
         pts = worldPoints(veh, def, loc), anchor = anchorW, started = GetGameTimer(),
     }
     SetNuiFocus(true, true)
@@ -336,6 +338,7 @@ function D.StartCarry(info)
                         if r and r.ok then
                             D.carrying = nil
                             D.Notify(r.msg, 'good')
+                            if D.RefreshShelf then D.RefreshShelf() end
                         else
                             D.Notify(r and r.msg or L('error'), 'bad')
                         end
@@ -366,6 +369,7 @@ AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() then return end
     if sess then
         stopSparks()
+        if D.ClearProps then D.ClearProps(sess.props) end
         if sess.cam then
             RenderScriptCams(false, false, 0, true, true)
             DestroyCam(sess.cam, false)

@@ -27,6 +27,7 @@ end
 
 local function dispatch(src, kind, coords, data)
     TriggerClientEvent('dp-dziupla:client:dispatch', src, kind, coords, data or {})
+    DZ.Log('police', src, 'Zgłoszenie: ' .. kind, ('%.0f, %.0f%s'):format(coords.x, coords.y, data and data.plate and (' · tablice ' .. data.plate) or ''), 'police')
 end
 
 local function randomPlate()

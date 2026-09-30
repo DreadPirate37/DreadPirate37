@@ -10,6 +10,7 @@ end
 
 function DZ.warn(src, what)
     print(('^1[dp-dziupla] podejrzane (%s / %d): %s^7'):format(GetPlayerName(src) or '?', src, what))
+    if DZ.Log then DZ.Log('suspicious', src, 'Podejrzana akcja', what, 'warn') end
 end
 
 function DZ.token()
@@ -142,6 +143,7 @@ function DZ.Earn(src, p, amount, reason)
     p.stats.earned = p.stats.earned + amount
     ServerHooks.OnEarn(src, amount, reason)
     TriggerEvent('dp-dziupla:earned', src, amount, reason)
+    if DZ.Log then DZ.Log('earn', src, 'Wypłata: ' .. reason, ('**%d$** · łącznie w dziupli: %d$'):format(amount, p.stats.earned), 'earn') end
     return amount
 end
 
@@ -290,6 +292,7 @@ function DZ.AddNoise(src, shopKey, amount, p)
         n.v = n.v * 0.5
         local shop = DZ.ShopByKey(shopKey)
         Bridge.Notify(src, L('noise_alert'), 'bad')
+        if DZ.Log then DZ.Log('police', src, 'Zgłoszenie: hałas', 'Dziupla: ' .. (shop and shop.label or shopKey), 'police') end
         TriggerClientEvent('dp-dziupla:client:dispatch', src, 'noise', shop and shop.center or DZ.PedCoords(src), {})
     end
 end
@@ -435,6 +438,7 @@ DZ.register('buy', function(src, key, qty)
     end
     apply()
     DZ.Save(p)
+    DZ.Log('shop', src, 'Zakup', ('%s ×%d za %d$'):format(key, qty, price), 'info')
     return { ok = true, msg = ('Kupiono za %d$.'):format(price), data = DZ.Overview(src) }
 end)
 

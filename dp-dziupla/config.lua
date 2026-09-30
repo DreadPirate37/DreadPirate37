@@ -391,6 +391,22 @@ Config.Crusher = {
 }
 
 -- ==========================================================================
+--  LOGI NA DISCORD (webhook – najlepiej przez convar: set dziupla_webhook "https://...")
+-- ==========================================================================
+Config.Logs = {
+    webhook = '',
+    name = 'Dziupla',
+    events = {
+        earn = true,        -- każda wypłata (paser, zamówienie, eksport, handlarz, zgniatarka, zlecenie)
+        chop = true,        -- auto wstawione na stanowisko / przebitkę
+        part = false,       -- każda zdjęta część (dużo wiadomości)
+        suspicious = true,  -- odrzucone wyniki, podejrzane akcje
+        police = true,      -- zgłoszenia do policji (hałas, alarm, nadajnik, handlarz)
+        shop = false,       -- zakupy w sklepie
+    },
+}
+
+-- ==========================================================================
 --  ZABEZPIECZENIA
 -- ==========================================================================
 Config.Security = {
@@ -418,6 +434,27 @@ Config.Anim = {
     bench  = { dict = 'mini@repair', clip = 'fixing_a_ped' },
     scan   = { dict = 'amb@world_human_stand_mobile@male@text@base', clip = 'base' },
     drop   = { dict = 'anim@heists@narcotics@trash', clip = 'drop_front' },
+}
+
+-- Rekwizyty w dziupli (lokalne obiekty; nieistniejące modele są pomijane)
+Config.Props = {
+    enabled = true,
+    bench = 'prop_tool_bench02',
+    tyre = 'prop_compressor_03',
+    table = 'prop_table_03',
+    tableHeight = 0.78,
+    laptop = 'prop_laptop_01a',
+    shelf = 'prop_ff_shelves_01',
+    shelfParts = true,             -- ostatnie części z magazynu leżą na regale
+    shelfLevels = { 0.45, 1.05, 1.6 },
+    hoist = 'prop_engine_hoist',
+    basin = 'prop_oilcan_01a',
+    bay = {                        -- przy każdym stanowisku (off = w prawo / do przodu względem stanowiska)
+        { model = 'prop_toolchest_05', off = vec2(2.6, 0.8), h = 270.0 },
+        { model = 'prop_worklight_03b', off = vec2(-2.6, 2.2), h = 120.0 },
+        { model = 'prop_carjack', off = vec2(2.4, -1.6), h = 0.0 },
+    },
+    crusher = { 'prop_rub_carwreck_3', 'prop_rub_carwreck_2' },
 }
 
 Config.Marker = {

@@ -218,6 +218,7 @@ local function startJob(src, netId, rawSnap, mode)
         DZ.Save(p)
         if DZ.OnChopStart then DZ.OnChopStart(src, veh, snap, job) end
     end
+    DZ.Log('chop', src, mode == 'chop' and 'Rozbiórka' or 'Przebitka VIN', ('%s · tablice %s · klasa %d'):format(snap.label, plate, snap.class), 'chop')
     DZ.dbg(('job %d (%s) %s przez %d, części: %d'):format(job.id, mode, snap.label, src, #Logic.BuildParts(mode, snap)))
     return { ok = true, id = job.id, msg = mode == 'chop' and L('chop_started', snap.label) or nil }
 end
@@ -469,6 +470,7 @@ DZ.register('partFinish', function(src, token, report)
 
     DZ.AddXP(src, p, xp)
     DZ.Save(p)
+    DZ.Log('part', src, 'Zdjęta część', ('%s · %s · stan %d%%'):format(def.label, job.label, cond), 'info')
     TriggerEvent('dp-dziupla:partRemoved', src, { part = s.partId, cond = cond, vehicle = job.label })
     return res
 end)
@@ -487,6 +489,18 @@ DZ.register('carryStore', function(src)
     Carry[src] = nil
     DZ.Save(p)
     return { ok = true, msg = L('carry_stored', DZ.ItemLabel(it), DZ.WhCount(p), DZ.WhCap(p)) }
+end)
+
+-- ostatnie części z magazynu – do pokazania na regale
+DZ.register('shelfView', function(src)
+    local p = DZ.Profile(src)
+    if not p then return { items = {} } end
+    local list, out = DZ.WhList(p), {}
+    for i = #list, math.max(1, #list - 11), -1 do
+        local t = Parts.Types[list[i].t]
+        out[#out + 1] = { prop = (t and t.prop) or 'prop_cs_cardbox_01' }
+    end
+    return { items = out }
 end)
 
 DZ.register('carryState', function(src)

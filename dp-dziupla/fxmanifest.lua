@@ -18,6 +18,7 @@ client_scripts {
     'client/hooks.lua',
     'client/core.lua',
     'client/visuals.lua',
+    'client/props.lua',
     'client/partjob.lua',
     'client/chop.lua',
     'client/shop.lua',
@@ -29,6 +30,7 @@ server_scripts {
     'server/hooks.lua',
     'server/main.lua',
     'server/storage.lua',
+    'server/logs.lua',
     'server/chop.lua',
     'server/street.lua',
 }
