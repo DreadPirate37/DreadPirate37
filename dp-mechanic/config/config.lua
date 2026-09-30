@@ -157,6 +157,34 @@ Config.Workshops = {
 }
 
 -- ==========================================================================
+--  WYTRYCH – otwieranie zamków aut (zapadki bębenkowe, jak w Thief Simulator)
+--  Mechanik otwiera auto klienta bez kluczyków; eksport exports['dp-mechanic']:Lockpick(opts)
+--  pozwala użyć tej samej minigry w innych skryptach (np. kradzieże).
+-- ==========================================================================
+Config.Lockpick = {
+    enabled = true,
+    command = 'wytrych',          -- /wytrych przy zamkniętym aucie
+    key = 'G',                    -- klawisz (RegisterKeyMapping)
+    mechanicOnly = false,         -- true = tylko mechanicy na służbie
+    item = 'lockpick',            -- przedmiot frameworka (ox_inventory / ESX / QB); nil = bez przedmiotu
+    workshopStock = true,         -- mechanik na służbie w swoim warsztacie bierze wytrychy z magazynu warsztatu
+    autoTension = true,           -- true = napinacz trzymany automatycznie; false = PPM trzyma napięcie (trudniej)
+    resetOnBreak = false,         -- złamany wytrych zrzuca ustawione zapadki
+    alarm = true,                 -- pełny miernik hałasu = alarm auta
+    alarmTime = 30000,
+    timeLimit = 0,                -- s; 0 = stoper liczy w górę bez limitu
+    -- liczba zapadek wg klasy pojazdu (GetVehicleClass); reszta = default
+    pins = { default = 5, [0] = 4, [1] = 4, [2] = 5, [3] = 5, [4] = 5, [5] = 6, [6] = 6, [7] = 7, [8] = 3, [9] = 5, [10] = 4, [11] = 4, [12] = 5, [20] = 5 },
+    tolerance = 5.0,              -- px „okna” linii podziału na poziomie 1 (rośnie z poziomem)
+    toleranceStep = 0.8,          -- + px na poziom
+    stressRate = 1.6,             -- szybkość naprężania wytrycha przy przepchnięciu zapadki
+    maxSetSpeed = 110,            -- px/s – szybciej = zapadka „przeskoczy” linię podziału (pchaj powoli)
+    noise = { click = 0.035, set = 0.05, scrape = 0.015, over = 0.22, snap = 0.3, decay = 0.07 },
+    xp = { pin = 3, lock = 20, levels = { 0, 30, 82, 180, 340, 560, 850, 1250, 1800 } },
+    unlockDoors = true,           -- sukces odblokowuje drzwi pojazdu
+}
+
+-- ==========================================================================
 --  KLAWISZE (RegisterKeyMapping – gracz może zmienić w ustawieniach)
 -- ==========================================================================
 Config.Keys = {
