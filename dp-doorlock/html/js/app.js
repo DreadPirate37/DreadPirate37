@@ -132,6 +132,7 @@
       setTimeout(() => run[data.option] && run[data.option](), 200);
       return { ok: true };
     }
+    if (name === 'lpEvent') { if (data.kind === 'break') demoPicks--; return { ok: true, amount: demoPicks }; }
     if (name === 'gameDone') { setTimeout(() => DL.toast(data.success ? 'Zamek ustąpił.' : 'Nie udało się.', data.success ? 'success' : 'error'), 300); return { ok: true }; }
     if (name === 'adminPick') { setTimeout(() => DL.Admin.picked([{ model: 1557126584, coords: { x: 449.6, y: -986.4, z: 30.6 } }]), 900); return { ok: true }; }
     if (name === 'req') {
@@ -151,10 +152,17 @@
 
   const keyHolders = [{ id: 'char1:ff00aa11', label: 'Anna Zielińska' }, { id: 'char1:bb22cc33', label: 'Tomasz Wiśniewski' }];
   const openKeypad = () => DL.Keypad.open({ id: 4, name: 'Brama garażu', group: 'MRPD', mode: 'use' });
-  const openLockpick = (mode, model) => DL.Lockpick.open({
-    seed: Math.floor(Math.random() * 1e9), difficulty: 3, maxFails: 4, knockMax: 2, stall: 0.8, spring: 0.35,
-    mode: typeof mode === 'string' ? mode : qs.get('mode') || 'diy', model: model || qs.get('model') || undefined,
-  });
+  let demoPicks = 2;
+  const openLockpick = (mode, model) => {
+    demoPicks = 2;
+    const m = typeof mode === 'string' ? mode : qs.get('mode') || 'standard';
+    DL.Lockpick.open({
+      seed: Math.floor(Math.random() * 1e9), difficulty: 3, maxFails: 4, knockMax: 2, stall: 0.8, spring: 0.35,
+      mode: m, model: model || qs.get('model') || undefined, amount: demoPicks,
+      location: 'Vinewood Hills 3671 – Kowalscy', clock: 3 * 60 + 14, cash: 59, bag: 0.4,
+      skill: { xp: 47, next: 82, level: 2 },
+    });
+  };
   const openKeys = () => DL.Keys.open({ id: 2, name: 'Gabinet kapitana', holders: keyHolders, logs: LOGS });
   const openAdmin = () => DL.Admin.open(adminData());
 
@@ -168,10 +176,8 @@
   btn('card', 'Karta', () => DL.Reader.open({ id: 3, name: 'Zbrojownia', group: 'MRPD', kind: 'card', level: 3 }));
   btn('finger', 'Biometria', () => DL.Reader.open({ id: 2, name: 'Gabinet kapitana', group: 'MRPD', kind: 'bio' }));
   sep();
-  btn('pick', 'Spinka', () => openLockpick('diy', 'euro'));
-  btn('door', 'Rozeta', () => openLockpick('diy', 'rim'));
-  btn('lock', 'Kłódka', () => openLockpick('diy', 'padlock'));
   btn('keys', 'Wytrych', () => openLockpick('standard'));
+  btn('pick', 'Spinka', () => openLockpick('diy'));
   btn('target', 'Okrągły', () => openLockpick('round'));
   btn('chip', 'Hakowanie', () => DL.Hack.open({ seed: Math.floor(Math.random() * 1e9), difficulty: 3, stages: 2, time: 45 }));
   btn('fire', 'Termit', () => { DL.Progress.start({ label: 'Termit się pali…', icon: 'fire', ms: 5000 }); DL.Audio.play('sizzle', 0.6, 5000); setTimeout(() => { DL.Progress.end(true); DL.Chips.state(3, { l: false, b: true, a: true }); DL.toast('Zamek przepalony!', 'warn'); }, 5000); });

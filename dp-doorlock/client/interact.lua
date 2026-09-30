@@ -159,11 +159,21 @@ local function startGame(kind, id)
     local cam = (kind == 'lockpick' and Config.Lockpick.camera and target) and DL.CloseCam(target) or nil
     game = { kind = kind, id = id, token = res.token, stop = DL.Anim(kind), cam = cam }
     res.token = nil
+    res.clock = GetClockHours() * 60 + GetClockMinutes()
     openPanel({ action = kind, data = res })
 end
 
 run.lockpick = function(id) startGame('lockpick', id) end
 run.hack = function(id) startGame('hack', id) end
+
+-- zdarzenia w trakcie minigry (pęknięcie narzędzia, hałas) – sesja trwa dalej
+RegisterNUICallback('lpEvent', function(data, cb)
+    local g = game
+    if not g or g.kind ~= 'lockpick' then return cb({ ok = false }) end
+    CreateThread(function()
+        cb(DL.Callback('lockpick_event', g.id, g.token, tostring(data.kind)) or { ok = false })
+    end)
+end)
 
 RegisterNUICallback('gameDone', function(data, cb)
     cb(1)
@@ -174,7 +184,7 @@ RegisterNUICallback('gameDone', function(data, cb)
     g.stop()
     if g.cam then g.cam() end
     CreateThread(function()
-        local res = DL.Callback(g.kind .. '_finish', g.id, g.token, data.success == true, data.broke == true)
+        local res = DL.Callback(g.kind .. '_finish', g.id, g.token, data.success == true)
         DL.Result(res)
         if res and res.ok and not res.failed then Doors.Fx(g.id, 'ok') end
     end)

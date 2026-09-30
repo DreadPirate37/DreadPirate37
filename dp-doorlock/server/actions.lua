@@ -79,7 +79,9 @@ DL.Register('menu', function(src, id)
     if locked and not broken then
         if d.lockpick > 0 and d.security == 'standard' then
             local has, _, label = DL.LockTool(src, d)
-            add('lockpick', 'pick', L(label), has and L('difficulty', d.lockpick) or L('need_item'), not has, 'crime')
+            local okSkill, need = DL.SkillOk(src, d)
+            local desc = not okSkill and L('skill_low', need) or (has and L('difficulty', d.lockpick) or L('need_item'))
+            add('lockpick', 'pick', L(label), desc, not (has and okSkill), 'crime')
         end
         if d.hack > 0 and Door.Electronic[d.security] then
             local has = Bridge.FirstItem(src, Config.Items.hackDevice)
@@ -164,19 +166,64 @@ local function lockTool(src, d)
 end
 DL.LockTool = lockTool
 
+-- --------------------------------------------------------------------------
+--  Umiejętność „Włamywanie” (XP / poziomy) – KVP, pamięć podręczna w RAM
+-- --------------------------------------------------------------------------
+local skillCache = {}
+local SK = Config.Lockpick.skill
+
+local function skillOf(src)
+    local ident = Bridge.GetIdentifier(src)
+    if not ident then return { xp = 0, level = 1 } end
+    local xp = skillCache[ident]
+    if not xp then xp = GetResourceKvpInt('skill:' .. ident) skillCache[ident] = xp end
+    local level = 1
+    for i, need in ipairs(SK.levels) do if xp >= need then level = i end end
+    local next = SK.levels[level + 1] or SK.levels[#SK.levels]
+    return { xp = xp, level = level, next = next, ident = ident }
+end
+
+local function addXp(src, amount)
+    local s = skillOf(src)
+    if not s.ident then return s end
+    skillCache[s.ident] = s.xp + amount
+    SetResourceKvpInt('skill:' .. s.ident, s.xp + amount)
+    local n = skillOf(src)
+    if n.level > s.level then Bridge.Notify(src, L('skill_up', n.level), 'success') end
+    return n
+end
+
+local function skillOk(src, d)
+    if not SK.enabled then return true end
+    local need = SK.required[d.lockpick] or 1
+    return skillOf(src).level >= need, need
+end
+DL.SkillOk = skillOk
+
 DL.Register('lockpick_start', function(src, id)
     local d, st, id2 = door(id)
     if not d or d.lockpick == 0 or d.security ~= 'standard' then return { ok = false, msg = L('cant_do') } end
     if not DL.Near(src, id2) then return { ok = false, msg = L('too_far') } end
     if not st.locked or st.broken then return { ok = false, msg = L('already_open') } end
+    local okSkill, need = skillOk(src, d)
+    if not okSkill then return { ok = false, msg = L('skill_low', need) } end
     local item, mode = lockTool(src, d)
     if not item then return { ok = false, msg = L('need_item') } end
     local C, diff = Config.Lockpick, d.lockpick
+    local class
+    -- klasa narzędzi, z której ubywa przy pęknięciu (spinki / wytrychy / wytrychy okrągłe)
+    if mode == 'round' then class = Config.Items.round
+    elseif mode == 'diy' and Bridge.FirstItem(src, Config.Items.diy) then class = Config.Items.diy
+    else class = Config.Items.lockpick end
     local advanced = item == Config.Items.advanced
-    local s = startSession(src, 'lockpick', id2, { item = item })
+    local sk = skillOf(src)
+    local s = startSession(src, 'lockpick', id2, { item = item, class = class })
     local res = {
         ok = true, token = s.token, mode = mode, model = d.lockModel, difficulty = diff,
         advanced = advanced, seed = math.random(1, 2 ^ 30),
+        amount = Bridge.CountAny(src, class), cash = Bridge.GetCash(src),
+        location = d.group ~= '' and (d.name .. ' – ' .. d.group) or d.name,
+        skill = SK.enabled and { xp = sk.xp, next = sk.next, level = sk.level } or nil,
     }
     if mode == 'diy' then
         res.maxFails = C.diy.maxFails[math.min(diff, #C.diy.maxFails)]
@@ -184,27 +231,51 @@ DL.Register('lockpick_start', function(src, id)
         local P = C.pins
         res.pins = mode == 'round' and 7 or P.count[diff]
         res.knockMax, res.spring, res.maxFails = P.knockMax[diff], P.spring[diff], P.maxFails
-        res.stall = P.stall[diff] + (advanced and C.advancedBonus or 0)
+        res.stall = P.stall[diff] + (advanced and C.advancedBonus or 0) + (SK.enabled and (sk.level - 1) * SK.stallPerLevel or 0)
     end
     return res
 end)
 
--- porażka kosztuje tylko wtedy, gdy narzędzie pękło w minigrze; wyjście (ESC) jest darmowe
-DL.Register('lockpick_finish', function(src, id, tok, success, snapped)
+--- Zdarzenia w trakcie minigry: pęknięcie narzędzia (ubywa 1 szt., gra trwa dalej,
+--- jeśli masz następne) i pełny pasek hałasu (alarm). Sesja nie jest zamykana.
+DL.Register('lockpick_event', function(src, id, tok, kind)
+    local d, _, id2 = door(id)
+    local s = sessions[src]
+    if not d or not s or s.kind ~= 'lockpick' or s.id ~= id2 or s.token ~= tok then return { ok = false } end
+    if kind == 'break' then
+        local item = Bridge.FirstItem(src, s.class)
+        if item then Bridge.RemoveItem(src, item, 1) end
+        S.Log(id2, src, 'lockpick', 'fail')
+        if d.alarm and math.random() < Config.Lockpick.alarmOnBreak then DL.Alarm(id2, src, 'lockpick') end
+        local left = Bridge.CountAny(src, s.class)
+        if left <= 0 then sessions[src] = nil end
+        return { ok = true, amount = left }
+    elseif kind == 'noise' and not s.noised then
+        s.noised = true
+        if Config.Lockpick.alarmOnNoise and d.alarm then DL.Alarm(id2, src, 'noise') end
+        return { ok = true }
+    end
+    return { ok = true }
+end)
+
+DL.Register('lockpick_finish', function(src, id, tok, success)
     local d, _, id2 = door(id)
     if not d then return { ok = false } end
-    local s, err = takeSession(src, 'lockpick', id2, tok, success and Config.Lockpick.minSeconds * 1000 or 0)
-    if not s then return { ok = false, msg = err } end
-    if success then
-        S.Log(id2, src, 'lockpick', 'ok')
-        DL.SetLocked(id2, false, src, 'lockpick')
-        return { ok = true, msg = L('picked') }
+    if not success then
+        local s = sessions[src]
+        if s and s.kind == 'lockpick' and s.token == tok then sessions[src] = nil end
+        return { ok = true, failed = true }
     end
-    if snapped ~= true then return { ok = true, failed = true } end
-    S.Log(id2, src, 'lockpick', 'fail')
-    Bridge.RemoveItem(src, s.item, 1)
-    if d.alarm and math.random() < Config.Lockpick.alarmOnBreak then DL.Alarm(id2, src, 'lockpick') end
-    return { ok = true, failed = true, broke = true, msg = L('pick_broke') }
+    local s, err = takeSession(src, 'lockpick', id2, tok, Config.Lockpick.minSeconds * 1000)
+    if not s then return { ok = false, msg = err } end
+    S.Log(id2, src, 'lockpick', 'ok')
+    DL.SetLocked(id2, false, src, 'lockpick')
+    if SK.enabled then
+        local gain = d.lockpick * SK.xpPerDifficulty
+        addXp(src, gain)
+        return { ok = true, msg = L('picked') .. ' ' .. L('xp_gain', gain) }
+    end
+    return { ok = true, msg = L('picked') }
 end)
 
 -- --------------------------------------------------------------------------

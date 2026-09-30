@@ -83,6 +83,15 @@ Config.Lockpick = {
         maxFails = 4,                        -- kliknięcia „zablokuj” w złym momencie, po których wytrych pęka
     },
     advancedBonus = 0.25,                    -- zaawansowany wytrych: dłuższe „stanie” zapadki
+    alarmOnNoise = true,                     -- pełny pasek hałasu w minigrze włącza alarm (jeśli drzwi mają alarm)
+    -- umiejętność „Włamywanie” (XP i poziomy jak w grze; zapis w KVP)
+    skill = {
+        enabled = true,
+        levels = { 0, 82, 200, 380, 650, 1000 },   -- XP potrzebne na poziom 1, 2, 3…
+        xpPerDifficulty = 12,                      -- XP za otwarty zamek = trudność × ta wartość
+        required = { 1, 1, 2, 3, 4 },              -- minimalny poziom dla zamka o trudności 1–5
+        stallPerLevel = 0.05,                      -- każdy poziom wydłuża „stanie” zapadki
+    },
     camera = true,                           -- kamera najeżdża na zamek podczas minigry
     cameraDistance = 0.55,
     cameraFov = 42.0,
@@ -211,7 +220,7 @@ Config.Doors = {
     {
         key = 'mrpd_cells', name = 'Cele – krata', group = 'MRPD', type = 'single',
         doors = { { model = `v_ilev_ph_cellgate`, coords = vec3(463.8, -992.6, 24.9) } },
-        access = { jobs = { police = 0 } }, lockpick = 5, lockModel = 'padlock', alarm = true, autoLock = 6,
+        access = { jobs = { police = 0 } }, lockpick = 5, alarm = true, autoLock = 6,
     },
     {
         key = 'sandy_pd', name = 'Posterunek Sandy Shores', group = 'BCSO', type = 'single',

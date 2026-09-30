@@ -340,7 +340,7 @@ DL.Admin = (() => {
       const f2 = field('Hakowanie – trudność', range(d.hack, 0, 5, 1, v => change(x => (x.hack = v)), v => (hk.textContent = lvl(v))), { hint: d.security === 'standard' ? 'Hakowanie działa tylko przy zamkach elektronicznych.' : '0 = czytnika nie da się zhakować.' });
       DL.$('label', f2).append(hk);
       g.append(f1, f2);
-      g.append(field('Model zamka', seg([['euro', 'door', 'Wkładka w szyldzie'], ['rim', 'target', 'Rozeta'], ['padlock', 'lock', 'Kłódka'], ['round', 'layers', 'Zamek okrągły']], d.lockModel || 'euro', v => change(x => (x.lockModel = v))), { full: true, hint: 'Narzędzie dobiera się samo: trudność 1–2 → spinka i śrubokręt, 3–5 → wytrych (zapadki), zamek okrągły → wytrych okrągły.' }));
+      g.append(field('Model zamka', seg([['euro', 'door', 'Standardowy (szyld)'], ['round', 'target', 'Okrągły']], d.lockModel === 'round' ? 'round' : 'euro', v => change(x => (x.lockModel = v))), { full: true, hint: 'Narzędzie dobiera się samo: trudność 1–2 → spinka i śrubokręt, 3–5 → wytrych (zapadki), zamek okrągły → wytrych okrągły.' }));
       g.append(DL.h('div.full', null, rowSw('fire', 'Można wyważyć', 'Termit (przestępcy) i taran (służby) – drzwi zostają wyłamane do naprawy.', d.breach, v => change(x => (x.breach = v)))));
       g.append(DL.h('div.full', null, rowSw('alarm', 'Alarm', 'Włamanie, termit lub zablokowana klawiatura powiadamiają policję (blip + dispatch).', d.alarm, v => change(x => (x.alarm = v)))));
       g.append(DL.h('div.full', null, rowSw('bell', 'Dzwonek', 'Goście mogą zadzwonić – osoby z dostępem w pobliżu dostaną powiadomienie.', d.doorbell, v => change(x => (x.doorbell = v)))));

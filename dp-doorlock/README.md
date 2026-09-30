@@ -15,8 +15,8 @@ Zasób był pisany z myślą o **wydajności** (szczegóły w sekcji [Wydajnoś�
 |---|---|
 | ![Znaczniki](docs/main.jpg) | ![Menu radialne](docs/radial.jpg) |
 | ![Klawiatura PIN](docs/keypad.jpg) | ![Czytnik kart](docs/card.jpg) |
-| ![Spinka i śrubokręt](docs/lockpick.jpg) | ![Wytrych – zapadki](docs/lockpick-pins.jpg) |
-| ![Wytrych okrągły](docs/lockpick-round.jpg) | ![Kłódka](docs/lockpick-padlock.jpg) |
+| ![Wytrych](docs/lockpick.jpg) | ![Spinka i śrubokręt](docs/lockpick-diy.jpg) |
+| ![Noktowizor](docs/lockpick-nv.jpg) | ![Zamek okrągły](docs/lockpick-round.jpg) |
 | ![Biometria](docs/bio.jpg) | |
 | ![Hakowanie](docs/hack.jpg) | ![Klucze cyfrowe](docs/keys.jpg) |
 | ![Panel admina](docs/admin.jpg) | ![Dostęp](docs/admin-access.jpg) |
@@ -63,15 +63,14 @@ Menu radialne w stylu koła broni z GTA: wybór kątem myszy, klawiszami 1–9 a
 | Edytuj drzwi | admin | otwiera panel na tych drzwiach |
 
 ### Minigry
-- **Otwieranie zamków** – przebieg i mechanika jak w Thief Simulator, grafika własna. Kamera w grze najeżdża na zamek, a minigra jest pełnoekranowa i przezroczysta, więc za zamkiem widać prawdziwe drzwi. HUD jest minimalny: stan narzędzia w lewym górnym rogu, klawisze w prawym dolnym. Nie ma limitu czasu. Narzędzie dobiera się do zamku samo:
-
-  | Zamek | Narzędzie (przedmiot) | Mechanika |
-  |---|---|---|
-  | prosty (trudność 1–2) | **spinka + śrubokręt** (`bobbypin`, działa też zwykły wytrych) | Mysz ustawia kąt spinki, `D`/LPM przekręca śrubokrętem. Im bliżej właściwego kąta, tym dalej obraca się bębenek. Zablokowanie to nietrafiona próba; po 4–5 próbach spinka pęka |
-  | z zapadkami (trudność 3–5) | **wytrych** (`lockpick`, `advancedlockpick`) | Przekrój wkładki, zapadki w kształcie pastylek. `A`/`D` wybiera zapadkę, `S`/PPM/kółko stuka (sprężyna czasem odbija), a na dnie zapadka chwilę **stoi**. Wtedy `LPM`/`SPACJA` ją blokuje. 4 kliknięcia w złym momencie i wytrych pęka |
-  | okrągły (`lockModel = 'round'`) | **wytrych okrągły** (`round_lockpick`) | 7 zapadek w kole, ta sama zasada, z podglądem przekroju wybranej zapadki |
-
-  Wyjście klawiszem `ESC` jest darmowe (licznik błędów się zeruje). Tracisz narzędzie tylko wtedy, gdy pęknie. Modele zamków: wkładka w szyldzie z klamką, wkładka w rozecie, kłódka (kabłąk wyskakuje) i zamek okrągły.
+- **Otwieranie zamków – ekran i mechanika jak w Thief Simulator** (grafika narysowana od zera, bez zasobów z gry).
+  - **Scena:** widok z pierwszej osoby. Owalny, przybrudzony szyld z brązu z lilią, dwiema śrubami i podświetloną dziurką od klucza. Za nim przecięty korpus wkładki w ujęciu 3/4 z okienkiem na 5 szklanych rurek z zapadkami (mosiężny bolec górny, sprężyna, bolec dolny). Wytrych wchodzi z lewej: szeroka szara rękojeść z nitem, trzon w dziurce, a w przekroju drucik zagięty na wybraną zapadkę. Napinacz sterczy w górę, kursor ma kształt dłoni. Tło jest przezroczyste, więc za zamkiem widać drzwi z kamery zbliżeniowej.
+  - **Interfejs:** `[F] Wyjdź / [E] Latarka / [R] Noktowizor` w lewym górnym rogu, „Ilość wytrychów” na dole, nazwa miejsca na niebiesko po prawej, zegar gry i pasek hałasu z ikoną oka w lewym dolnym rogu, XP i poziom *Włamywania* oraz plecak z gotówką w prawym dolnym rogu.
+  - **Wytrych (zamki z zapadkami, trudność 3–5):** zapadkę wybierasz najechaniem myszą albo `A`/`D`, wciskasz ją `PPM`/`S`/kółkiem (sprężyna czasem odbija), na dnie zapadka chwilę **stoi** i wtedy `LPM` ją blokuje. 4 kliknięcia w złym momencie i wytrych pęka: **liczba wytrychów spada o 1**, a jeśli masz następny, grasz dalej (zapadki wracają na górę).
+  - **Spinka + śrubokręt (proste zamki, trudność 1–2):** mysz ustawia kąt spinki, `D`/`LPM` przekręca śrubokrętem. Im bliżej właściwego kąta, tym dalej obraca się bębenek. Zablokowanie to nietrafiona próba, po 4–5 spinka pęka.
+  - **Wytrych okrągły (`lockModel = 'round'`):** 7 zapadek w kole, ta sama zasada.
+  - **Latarka i noktowizor** faktycznie zmieniają oświetlenie zamka. **Hałas:** stukanie, błędy i pęknięcia zapełniają pasek, a pełny włącza alarm (jeśli drzwi go mają).
+  - **Umiejętność „Włamywanie”:** XP za otwarte zamki (trudność × 12), poziomy odblokowują trudniejsze zamki (`Config.Lockpick.skill.required`), a każdy poziom wydłuża „stanie” zapadki. Wyjście (`F`/`ESC`) nic nie kosztuje.
 - **Hakowanie.** Oscyloskop z sygnałem czytnika. Trzema pokrętłami (częstotliwość, amplituda, faza) dopasowujesz swoją falę. Po zatrzaśnięciu 1–3 etapów zamek puszcza. Na wyższych poziomach sygnał dryfuje i szumi. Porażka blokuje czytnik dla gracza i może włączyć alarm.
 
 ### Automatyka
