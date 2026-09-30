@@ -236,3 +236,6 @@ table.wh input { width: 16px; height: 16px; accent-color: var(--acc); }
 .spark line { stroke: rgba(255,255,255,0.15); stroke-dasharray: 3 3; }
 .spark polyline { fill: none; stroke: var(--acc); stroke-width: 2; }
 .dots { color: var(--acc); letter-spacing: 2px; }
+.inp { background: #0f1215; border: 1px solid #2f373e; color: var(--txt); border-radius: 4px; padding: 7px 10px; font: 600 16px Rajdhani, sans-serif; width: 100%; user-select: text; }
+.card.raid { margin-bottom: 12px; }
+.card.raid .c-head b.bad { color: var(--bad); }

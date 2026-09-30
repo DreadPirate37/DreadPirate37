@@ -146,6 +146,22 @@ np. „Boom na katalizatory +45%”. Popyt jest wspólny dla całego serwera i z
 
 ---
 
+## Ekipa
+Za `Config.Crew.createPrice` (od poziomu 3) zakładasz ekipę w ChopNecie (zakładka **Ekipa**). Daje ona:
+- **wspólny magazyn i regały** (w trybie ox: wspólny stash ekipy),
+- **kasę ekipy**: 10% każdego zarobku członków; wpłacać może każdy, wypłacać tylko szef,
+- **poziom ekipy** z jej zarobków (+3% do cen u pasera na poziom),
+- role: szef, zastępca (zaprasza i wyrzuca), członek. Zaproszenia idą po ID gracza.
+
+## Naloty policji (heat)
+Każda dziupla ma **heat**. Rośnie z każdym wstawionym autem, każdą zdjętą częścią i każdym zgłoszeniem
+(hałas), a z czasem opada. Powyżej progu, gdy na służbie jest min. 2 policjantów, co 5 min może przyjść **obława**:
+1. Gracze w dziupli dostają ostrzeżenie (90 s), a policja zgłoszenie na lokalizację dziupli.
+2. Potem dziupla jest **zamknięta** (15 min): trwające rozbiórki zostają przerwane, nie da się sprzedawać, kupować ani rozbierać.
+3. Policjant przy regale może **przeszukać dziuplę**. Zabezpiecza „gorące” części (zdjęte w ostatnich 30 min) z magazynów graczy, którzy tu ostatnio pracowali, i dostaje nagrodę za każdą.
+
+Heat widać w ChopNecie (Pulpit), razem z „kopertą dla dzielnicowego”, która raz na godzinę zbija heat.
+
 ## Progresja
 
 10 poziomów (Złomiarz → Legenda półświatka) i 1 punkt umiejętności na poziom:

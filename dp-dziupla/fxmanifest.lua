@@ -32,6 +32,8 @@ server_scripts {
     'server/main.lua',
     'server/storage.lua',
     'server/logs.lua',
+    'server/crew.lua',
+    'server/raid.lua',
     'server/chop.lua',
     'server/street.lua',
 }

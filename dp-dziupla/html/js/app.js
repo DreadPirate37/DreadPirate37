@@ -139,6 +139,9 @@
         { id: 'a2', tier: 1, label: 'Asea', model: 'asea', reward: 720, xp: 60, time: 1900, risk: { alarm: 0.3, tracker: 0 }, area: { x: 0, y: 0, z: 0 }, zone: 'La Mesa' }] },
       orders: { offers: [{ id: 'o1', client: 'Tuner z Vespucci', pay: 1980, lines: [{ t: 'wheel', n: 4, min: 60, label: 'Koło' }, { t: 'seat', n: 1, min: 45, label: 'Fotel' }], have: [1, 1], time: 2400 }] },
       exports: { minLevel: 2, locked: false, offers: [{ id: 'e1', label: 'Sportowe', pay: 5800, time: 1800, minHealth: 0.7 }] },
+      raid: { heat: 74, threshold: 100, shop: 'Dziupla – złomowisko La Puerta', bribe: 6000, canBribe: true },
+      crew: { enabled: true, price: 25000, maxMembers: 8, cut: 0.1, crew: { name: 'Dziki Zachód', level: 2, bank: 14200, earned: 88100, priceBonus: 0.03, myRole: 'boss',
+        members: [{ id: 'a', name: 'Ty', role: 'boss', roleLabel: 'Szef', me: true }, { id: 'b', name: 'Zbyszek', role: 'member', roleLabel: 'Członek' }] } },
       street: [{ net: 101, label: 'Comet', model: 'comet2', tier: 3, price: 600, tracker: true }, { net: 102, label: 'Premier', model: 'premier', tier: 1, price: 150 }],
     }, qs.get('laptop') || 'home');
   }

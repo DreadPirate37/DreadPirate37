@@ -92,6 +92,18 @@ function DZ.Profile(src)
     return p
 end
 
+-- profil po identyfikatorze (także gracza offline – np. przeszukanie przy obławie)
+function DZ.ProfileById(id)
+    if Profiles[id] then return Profiles[id] end
+    local raw = GetResourceKvpString('dz:' .. id)
+    if not raw then return nil end
+    local p = newProfile(id)
+    for k, v in pairs(json.decode(raw) or {}) do p[k] = v end
+    p.id = id
+    Profiles[id] = p
+    return p
+end
+
 function DZ.Save(p)
     local copy = {}
     for k, v in pairs(p) do
@@ -139,6 +151,7 @@ end
 function DZ.Earn(src, p, amount, reason)
     amount = math.floor(amount)
     if amount <= 0 then return 0 end
+    if DZ.CrewCut then amount = DZ.CrewCut(src, p, amount) end
     Bridge.AddMoney(src, Config.PayAccount, amount, 'dp-dziupla-' .. reason)
     p.stats.earned = p.stats.earned + amount
     ServerHooks.OnEarn(src, amount, reason)
@@ -174,12 +187,22 @@ function DZ.ShopByKey(key)
     end
 end
 
-function DZ.ShopAt(src)
+function DZ.ShopAtRaw(src)
     local c = DZ.PedCoords(src)
     if not c then return nil end
     for _, s in ipairs(Config.Shops) do
         if #(c - s.center) <= s.radius then return s end
     end
+end
+
+-- dziupla, w której gracz stoi – podczas obławy jest zamknięta
+function DZ.ShopAt(src)
+    local s = DZ.ShopAtRaw(src)
+    if s and DZ.RaidActive and DZ.RaidActive(s.key) then
+        Bridge.Notify(src, 'Dziupla zamknięta – trwa obława policji.', 'bad')
+        return nil
+    end
+    return s
 end
 
 function DZ.Near(src, v, r)
@@ -237,7 +260,7 @@ function DZ.Price(p, it)
     if not t then return 0 end
     local v = Logic.PartValue(it.t, it.c, it.m, it.k)
     if it.t == 'scrap' then return v end
-    return math.floor(v * DZ.Demand(t.cat) * DZ.Fx(p).trader * Config.Fence.mult)
+    return math.floor(v * DZ.Demand(t.cat) * DZ.Fx(p).trader * Config.Fence.mult * (DZ.CrewPriceMult and DZ.CrewPriceMult(p) or 1))
 end
 
 CreateThread(function()
@@ -292,6 +315,7 @@ function DZ.AddNoise(src, shopKey, amount, p)
         n.v = n.v * 0.5
         local shop = DZ.ShopByKey(shopKey)
         Bridge.Notify(src, L('noise_alert'), 'bad')
+        if DZ.AddHeat then DZ.AddHeat(shopKey, Config.Raid.perAlert) end
         if DZ.Log then DZ.Log('police', src, 'Zgłoszenie: hałas', 'Dziupla: ' .. (shop and shop.label or shopKey), 'police') end
         TriggerClientEvent('dp-dziupla:client:dispatch', src, 'noise', shop and shop.center or DZ.PedCoords(src), {})
     end
@@ -352,7 +376,7 @@ local function shopView(src, p)
     end
     table.sort(cons, function(a, b) return a.price < b.price end)
     for k, u in pairs(Config.Upgrades) do
-        upg[#upg + 1] = { key = k, label = u.label, price = u.price, have = p.upg[k] or 0, max = u.max }
+        upg[#upg + 1] = { key = k, label = u.label, price = u.price, have = ((DZ.Store and DZ.Store(p) or p).upg[k]) or 0, max = u.max }
     end
     return { tools = tools, cons = cons, upg = upg }
 end
@@ -385,7 +409,7 @@ function DZ.Overview(src)
     local p = DZ.Profile(src)
     local items = {}
     for i, it in ipairs(DZ.WhList(p)) do items[i] = DZ.ItemView(p, it) end
-    local shop = DZ.ShopAt(src)
+    local shop = DZ.ShopAtRaw(src)
     local data = {
         profile = DZ.ProfileView(p),
         warehouse = { items = items, cap = DZ.WhCap(p) },
@@ -396,6 +420,8 @@ function DZ.Overview(src)
         cash = nil,
     }
     if DZ.StreetView then DZ.StreetView(src, p, data) end
+    if DZ.CrewView then DZ.CrewView(src, p, data) end
+    if DZ.RaidView then DZ.RaidView(src, p, data) end
     return data
 end
 
@@ -428,8 +454,12 @@ DZ.register('buy', function(src, key, qty)
         price, apply = c.price * qty, function() DZ.ConsAdd(src, p, key, qty) end
     elseif Config.Upgrades[key] then
         local u = Config.Upgrades[key]
-        if (p.upg[key] or 0) >= u.max then return { ok = false, msg = 'Maksymalny poziom ulepszenia.' } end
-        price, apply = u.price, function() p.upg[key] = (p.upg[key] or 0) + 1 end
+        local st = DZ.Store and DZ.Store(p) or p   -- regały ekipy są wspólne
+        if (st.upg[key] or 0) >= u.max then return { ok = false, msg = 'Maksymalny poziom ulepszenia.' } end
+        price, apply = u.price, function()
+            st.upg[key] = (st.upg[key] or 0) + 1
+            if st ~= p then DZ.Save(st) end
+        end
     else
         return { ok = false }
     end

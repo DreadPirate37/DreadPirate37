@@ -13,6 +13,7 @@
     ['market', 'Rynek'],
     ['shop', 'Sklep'],
     ['skills', 'Umiejętności'],
+    ['crew', 'Ekipa'],
   ];
   const stars = n => '★'.repeat(n) + '☆'.repeat(Math.max(0, 4 - n));
   const pct = v => Math.round((v || 0) * 100) + '%';
@@ -86,6 +87,7 @@
       if (k === 'contracts') n = d.contracts && d.contracts.active ? 1 : 0;
       if (k === 'orders') n = d.orders && d.orders.active ? 1 : 0;
       if (k === 'skills') n = d.profile.points;
+      if (k === 'crew') n = d.crew && d.crew.invite ? 1 : 0;
       if (k === 'warehouse') return `<em>${d.warehouse.items.length}/${d.warehouse.cap}</em>`;
       return n ? `<em class="hot">${n}</em>` : '';
     },
@@ -93,7 +95,15 @@
     bind() {
       const root = $('laptop');
       root.querySelectorAll('[data-act]').forEach(b => {
-        b.onclick = () => this.act(b.dataset.act, b.dataset.arg, b.dataset.arg2 != null ? Number(b.dataset.arg2) : undefined);
+        b.onclick = () => {
+          let arg = b.dataset.arg;
+          if (b.dataset.from) {
+            const el = W.$(b.dataset.from);
+            arg = el ? el.value : '';
+            if (b.dataset.neg != null) arg = -Math.abs(Number(arg) || 0);
+          }
+          this.act(b.dataset.act, arg, b.dataset.arg2 != null ? Number(b.dataset.arg2) : undefined);
+        };
       });
       root.querySelectorAll('[data-gps]').forEach(b => {
         b.onclick = async () => {
@@ -144,6 +154,7 @@
       const tile = (l, v) => `<div class="tile"><small>${l}</small><b>${v}</b></div>`;
       return `
         ${ev ? `<div class="lt-event"><b>Wydarzenie rynkowe</b> ${W.esc(ev.label)} <small>jeszcze ${mins(ev.left)}</small></div>` : ''}
+        ${this.raidPanel()}
         <div class="tiles">
           ${tile('Rozebrane auta', s.cars)}${tile('Zdjęte części', s.parts)}${tile('Zarobek', W.fmtMoney(s.earned))}
           ${tile('Zlecenia', s.contracts)}${tile('Zamówienia', s.orders)}${tile('Eksport', s.exports)}${tile('Regeneracje', s.regen)}
@@ -163,6 +174,54 @@
           <li>Zdjęte części zanieś na regał. Sprzedaj paserowi, zregeneruj na stole albo zrealizuj zamówienie.</li>
           <li>Zamykaj bramę – szlifierka przy otwartej bramie potrafi ściągnąć policję.</li>
         </ol>`;
+    },
+
+    raidPanel() {
+      const r = this.data.raid;
+      if (!r) return '';
+      const k = W.clamp(r.heat / r.threshold, 0, 1.3) / 1.3;
+      const col = r.heat >= r.threshold ? 'var(--bad)' : r.heat >= r.threshold * 0.6 ? 'var(--acc)' : 'var(--good)';
+      const phase = r.phase === 'warning' ? `<b class="bad">OBŁAWA za ${r.left}s!</b>` : r.phase === 'raid' ? `<b class="bad">Trwa obława – dziupla zamknięta (${mins(r.left)})</b>` : '';
+      return `<div class="card raid"><div class="c-head"><h3>Heat: ${W.esc(r.shop)}</h3>${phase}</div>
+        <div class="risk"><span>${r.heat} / ${r.threshold}</span><i><s style="width:${(k * 100).toFixed(0)}%;background:${col}"></s></i></div>
+        <p>Każde auto, część i zgłoszenie podbija heat. Powyżej progu policja może zrobić nalot i zabezpieczyć świeże części z regałów.</p>
+        <div class="c-foot"><span></span><button class="btn" data-act="raidBribe" ${r.canBribe ? '' : 'disabled'}>Koperta dla dzielnicowego ${W.fmtMoney(r.bribe)}</button></div></div>`;
+    },
+
+    tab_crew() {
+      const c = this.data.crew || {};
+      if (!c.enabled) return '<div class="card empty">Ekipy są wyłączone na tym serwerze.</div>';
+      const inv = c.invite ? `<div class="card act"><div class="c-head"><h3>Zaproszenie: ${W.esc(c.invite.name)}</h3></div><p>Od: ${W.esc(c.invite.from)}</p>
+        <div class="c-foot"><span></span><button class="btn primary" data-act="crewAccept">Dołącz</button></div></div>` : '';
+      const k = c.crew;
+      if (!k) {
+        return `<div class="cards">${inv}<div class="card"><div class="c-head"><h3>Załóż ekipę</h3><b>${W.fmtMoney(c.price)}</b></div>
+          <p>Wspólny magazyn i regały, kasa ekipy (${Math.round(c.cut * 100)}% zarobków członków), poziom ekipy podnosi ceny u pasera. Do ${c.maxMembers} osób.</p>
+          <input id="crewName" class="inp" maxlength="24" placeholder="Nazwa ekipy">
+          <div class="c-foot"><span></span><button class="btn primary" data-act="crewCreate" data-from="crewName">Załóż</button></div></div></div>`;
+      }
+      const boss = k.myRole === 'boss', deputy = boss || k.myRole === 'deputy';
+      return `<div class="tiles">
+          <div class="tile"><small>Ekipa</small><b>${W.esc(k.name)}</b></div>
+          <div class="tile"><small>Poziom</small><b>${k.level}${k.priceBonus ? ` <small>+${Math.round(k.priceBonus * 100)}% cen</small>` : ''}</b></div>
+          <div class="tile"><small>Kasa</small><b>${W.fmtMoney(k.bank)}</b></div>
+          <div class="tile"><small>Zarobek ekipy</small><b>${W.fmtMoney(k.earned)}</b></div>
+        </div>
+        <h2>Członkowie</h2>
+        <table class="wh"><tbody>${k.members.map(m => `<tr><td><b>${W.esc(m.name)}</b>${m.me ? ' <span class="tag ok">ty</span>' : ''}</td><td>${W.esc(m.roleLabel)}</td>
+          <td style="text-align:right">${boss && !m.me ? `<button class="btn tiny" data-act="crewPromote" data-arg="${W.esc(m.id)}">${m.role === 'deputy' ? 'Degraduj' : 'Awansuj'}</button> ` : ''}
+          ${deputy && !m.me && m.role !== 'boss' ? `<button class="btn tiny danger" data-act="crewKick" data-arg="${W.esc(m.id)}">Wyrzuć</button>` : ''}</td></tr>`).join('')}</tbody></table>
+        <div class="cards" style="margin-top:12px">
+          ${deputy ? `<div class="card"><div class="c-head"><h3>Zaproś gracza</h3></div><p>ID gracza z serwera (musi być online).</p>
+            <input id="crewInv" class="inp" placeholder="ID"><div class="c-foot"><span></span><button class="btn primary" data-act="crewInvite" data-from="crewInv">Zaproś</button></div></div>` : ''}
+          <div class="card"><div class="c-head"><h3>Kasa ekipy</h3><b>${W.fmtMoney(k.bank)}</b></div>
+            <input id="crewAmt" class="inp" placeholder="Kwota"><div class="c-foot"><span></span>
+            <button class="btn" data-act="crewBank" data-from="crewAmt">Wpłać</button>
+            ${boss ? '<button class="btn primary" data-act="crewBank" data-from="crewAmt" data-neg>Wypłać</button>' : ''}</div></div>
+          <div class="card"><div class="c-head"><h3>${boss ? 'Rozwiąż / opuść' : 'Opuść ekipę'}</h3></div>
+            <p>${boss ? 'Szef może rozwiązać ekipę, gdy zostanie sam (kasa wraca do szefa, magazyn ekipy przepada).' : 'Twoje części zostają w magazynie ekipy.'}</p>
+            <div class="c-foot"><span></span><button class="btn danger" data-act="crewLeave">${boss ? 'Rozwiąż' : 'Opuść'}</button></div></div>
+        </div>`;
     },
 
     activeContract(c) {

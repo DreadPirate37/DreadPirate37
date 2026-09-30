@@ -101,6 +101,8 @@ local LaptopActions = {
     contractAccept = 'contractAccept', contractCancel = 'contractCancel',
     orderAccept = 'orderAccept', orderCancel = 'orderCancel',
     exportAccept = 'exportAccept', exportCancel = 'exportCancel', tipBuy = 'tipBuy',
+    crewCreate = 'crewCreate', crewInvite = 'crewInvite', crewAccept = 'crewAccept', crewKick = 'crewKick',
+    crewPromote = 'crewPromote', crewLeave = 'crewLeave', crewBank = 'crewBank', raidBribe = 'raidBribe',
 }
 
 RegisterNUICallback('laptop', function(data, cb)
@@ -325,6 +327,13 @@ CreateThread(function()
                         if r and r.msg then D.Notify(r.msg, r.closed and 'good' or 'warn') end
                     end },
                 }
+                local raid = GlobalState['dpRaid_' .. s.key]
+                if raid and raid.phase == 'raid' and s.shelf then
+                    points[#points + 1] = { v = s.shelf, r = Config.Raid.searchRadius, help = '~INPUT_CONTEXT~ Przeszukaj dziuplę (policja)', fn = function()
+                        local r = D.Callback('raidSearch', s.key)
+                        if r and r.msg then D.Notify(r.msg, r.ok and 'good' or 'bad', 7000) end
+                    end }
+                end
                 if D.OxInv then
                     points[#points + 1] = { v = s.shelf, r = 1.6, help = L('help_stash'), fn = function()
                         local r = D.Callback('openStash')
@@ -367,3 +376,16 @@ AddEventHandler('onResourceStop', function(res)
     end
     if D.laptop or bench then SetNuiFocus(false, false) end
 end)
+
+-- ostrzeżenia o obławie dla graczy w dziupli
+for _, shop in ipairs(Config.Shops) do
+    AddStateBagChangeHandler('dpRaid_' .. shop.key, 'global', function(_, _, value)
+        if not value or D.shop ~= shop then return end
+        if value.phase == 'warning' then
+            D.Notify(('OBŁAWA! Policja wjedzie za ~%d s. Zwijajcie się!'):format(math.max(0, value.t - GetCloudTimeAsInt())), 'bad', 12000)
+            PlaySoundFrontend(-1, 'TIMER_STOP', 'HUD_MINI_GAME_SOUNDSET', true)
+        elseif value.phase == 'raid' then
+            D.Notify('Policja wchodzi do dziupli! Rozbiórki przerwane.', 'bad', 10000)
+        end
+    end)
+end

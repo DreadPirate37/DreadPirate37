@@ -43,7 +43,7 @@ local function meta(it)
     if it.v then desc = desc .. ' · z auta: ' .. it.v end
     if it.r then desc = desc .. ' · regenerowana' end
     return {
-        dzid = it.u, t = it.t, c = it.c, m = it.m, v = it.v, r = it.r, k = it.k,
+        dzid = it.u, t = it.t, c = it.c, m = it.m, v = it.v, r = it.r, k = it.k, h = it.h,
         label = ('%s (%d%%)'):format(label, it.c or 0), description = desc,
         weight = math.floor(((it.t == 'scrap' and it.k) or t.kg or 1) * 1000),
         image = I.images and ('dz_' .. it.t) or nil,
@@ -53,7 +53,7 @@ end
 local function fromMeta(slot)
     local m = slot.metadata or {}
     if not m.t or not m.dzid then return nil end
-    return { u = m.dzid, t = m.t, c = m.c, m = m.m, v = m.v, r = m.r, k = m.k, slot = slot.slot }
+    return { u = m.dzid, t = m.t, c = m.c, m = m.m, v = m.v, r = m.r, k = m.k, h = m.h, slot = slot.slot }
 end
 
 -- ==========================================================================
@@ -230,6 +230,18 @@ function DZ.ConsTable(src, p)
     local out = {}
     for k in pairs(Config.Consumables) do out[k] = DZ.ConsCount(src, p, k) end
     return out
+end
+
+-- magazyn ekipy: gdy gracz jest w ekipie, wszystkie operacje idą na rekord ekipy
+for _, name in ipairs({ 'WhCap', 'WhList', 'WhCount', 'WhFree', 'WhAdd', 'WhFind', 'WhTake', 'WhUpdate', 'IsRes', 'SetRes' }) do
+    local f = DZ[name]
+    local writes = name == 'WhAdd' or name == 'WhTake' or name == 'WhUpdate'
+    DZ[name] = function(p, ...)
+        local s = DZ.Store and DZ.Store(p) or p
+        local a, b = f(s, ...)
+        if s ~= p and writes then DZ.Save(s) end
+        return a, b
+    end
 end
 
 CreateThread(function()

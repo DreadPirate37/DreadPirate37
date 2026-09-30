@@ -412,6 +412,41 @@ Config.Crusher = {
 }
 
 -- ==========================================================================
+--  EKIPA (crew)
+-- ==========================================================================
+Config.Crew = {
+    enabled = true,
+    createPrice = 25000,
+    minLevel = 3,
+    maxMembers = 8,
+    cut = 0.10,                    -- 10% każdego zarobku członka trafia do kasy ekipy
+    sharedWarehouse = true,        -- członkowie mają wspólny magazyn (i wspólne regały)
+    levels = { 0, 500, 1500, 3500, 7000 }, -- XP ekipy (1 XP za każde 100$ zarobku członków)
+    pricePerLevel = 0.03,          -- +3% do cen za każdy poziom ekipy powyżej 1
+}
+
+-- ==========================================================================
+--  NALOTY POLICJI (heat dziupli)
+-- ==========================================================================
+Config.Raid = {
+    enabled = true,
+    perCar = 8,                    -- heat za każde auto wstawione na stanowisko
+    perPart = 0.4,                 -- heat za każdą zdjętą część
+    perAlert = 15,                 -- heat za zgłoszenie (hałas, alarm w okolicy)
+    decayPerHour = 12,
+    threshold = 100,               -- od tego poziomu możliwa obława
+    chance = 0.35,                 -- szansa na obławę przy każdym sprawdzeniu (co 5 min) powyżej progu
+    minPolice = 2,                 -- obława tylko, gdy jest tylu policjantów
+    warning = 90,                  -- sekundy od ostrzeżenia do wejścia policji
+    lockdown = 900,                -- ile sekund dziupla jest zamknięta (nie da się sprzedawać ani rozbierać)
+    hotTime = 1800,                -- część jest „gorąca” (dowód) przez tyle sekund od zdjęcia
+    searchRadius = 5.0,            -- policjant przeszukuje regał z tej odległości
+    rewardPerPart = 150,           -- nagroda dla policjanta za zabezpieczoną część
+    maxSeize = 12,                 -- maks. części zabezpieczonych u jednej osoby
+    bribe = { price = 6000, amount = 40, cooldown = 3600 }, -- łapówka: -40 heat raz na godzinę
+}
+
+-- ==========================================================================
 --  LOGI NA DISCORD (webhook – najlepiej przez convar: set dziupla_webhook "https://...")
 -- ==========================================================================
 Config.Logs = {

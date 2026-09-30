@@ -221,6 +221,7 @@ local function startJob(src, netId, rawSnap, mode)
     publish(job)
 
     if mode == 'chop' then
+        if DZ.AddHeat then DZ.AddHeat(shop.key, Config.Raid.perCar, src) end
         p.stats.cars = p.stats.cars + 1
         DZ.Save(p)
         if DZ.OnChopStart then DZ.OnChopStart(src, veh, snap, job) end
@@ -510,7 +511,8 @@ DZ.register('partFinish', function(src, token, report)
         end
         publish(job)
     else
-        local item = { t = def.type, c = cond, m = pt.m, v = job.label, cls = job.snap.class }
+        local item = { t = def.type, c = cond, m = pt.m, v = job.label, cls = job.snap.class, h = os.time() }
+        if job.shop and DZ.AddHeat then DZ.AddHeat(job.shop, Config.Raid.perPart, src) end
         local value = DZ.Price(p, item)
         res.value = value
         res.msg = L('part_removed', def.label, cond, value)
@@ -745,6 +747,13 @@ end)
 -- --------------------------------------------------------------------------
 --  Widok dla klienta: czy auto jest na stanowisku
 -- --------------------------------------------------------------------------
+-- obława: wszystkie rozbiórki w dziupli zostają przerwane (auta zostają jako dowód)
+function DZ.CancelShopJobs(key)
+    for _, job in pairs(Jobs) do
+        if job.shop == key then endJob(job, false) end
+    end
+end
+
 function DZ.JobByNet(netId)
     local id = ByNet[netId]
     return id and Jobs[id]

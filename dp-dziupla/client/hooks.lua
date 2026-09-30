@@ -28,6 +28,7 @@ local Titles = {
     drop    = { code = '10-66', title = 'Podejrzana wymiana części', desc = 'Świadek widział przekazywanie części samochodowych.' },
     export  = { code = '10-16', title = 'Podejrzany załadunek w porcie', desc = 'Auto ładowane do kontenera bez dokumentów.' },
     dealer  = { code = '10-16', title = 'Auto z przebitymi numerami', desc = 'Handlarz zgłasza auto z podrobionym VIN.' },
+    raid    = { code = '10-99', title = 'Obława na dziuplę', desc = 'Informator wskazał działającą dziuplę – jednostki na miejsce.' },
     strip   = { code = '10-16', title = 'Kradzież części z auta', desc = 'Ktoś odkręca koła / tnie katalizator w zaparkowanym aucie.' },
 }
 
