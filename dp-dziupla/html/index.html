@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>dp-dziupla</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="toasts"></div>
+
+  <!-- HUD stanowiska rozbiórki -->
+  <div id="bayhud" class="panel hidden"></div>
+
+  <!-- Demontaż części (nakładka na kamerę z gry) -->
+  <div id="part" class="hidden">
+    <canvas id="pcv"></canvas>
+    <div id="p-card" class="panel"></div>
+    <div id="p-side" class="panel"></div>
+    <div id="p-tip" class="hidden"></div>
+    <div id="p-hint"></div>
+    <div id="p-remove" class="hidden"><b></b><i><s></s></i></div>
+    <div id="p-tools"></div>
+    <div id="p-keys">
+      <span class="key"><b>LPM</b>użyj</span><span class="key"><b>PPM</b>zmierz</span>
+      <span class="key"><b>Kółko / Q E</b>nasadka · bit</span><span class="key"><b>1–0, T</b>narzędzia</span>
+      <span class="key"><b>B</b>miska</span><span class="key"><b>SPACJA</b>zdejmij</span><span class="key"><b>ESC</b>odejdź</span>
+    </div>
+    <div id="p-confirm" class="hidden"></div>
+  </div>
+
+  <!-- Minigry: wytrych / skaner / stół warsztatowy -->
+  <div id="mini" class="hidden">
+    <div id="m-frame">
+      <div id="m-title"></div>
+      <canvas id="mcv" width="960" height="560"></canvas>
+      <div id="m-hint"></div>
+      <div id="m-keys"></div>
+    </div>
+  </div>
+
+  <!-- Laptop ChopNet -->
+  <div id="laptop" class="hidden"></div>
+
+  <!-- Okna: wybór części na stół, lakiernia -->
+  <div id="modal" class="hidden"></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/overlay.js"></script>
+  <script src="js/mini.js"></script>
+  <script src="js/laptop.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
