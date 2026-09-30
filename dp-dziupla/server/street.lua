@@ -88,17 +88,70 @@ local function contractView(c, active)
     return v
 end
 
+-- ==========================================================================
+--  AUTA-CELE: tylko pojazdy zespawnowane przez skrypt (zlecenia + auta „na mieście”)
+--  mają znacznik dpStolen i tylko je da się rozebrać, zgnieść, wyeksportować.
+-- ==========================================================================
+local Targets = {}    -- [netId] = { net, model, label, plate, tier, pins, alarm, hasTracker, trackerSpot, locked, contract, kind, area, spot, born }
+
+local function tierOf(model)
+    for i, t in ipairs(C.tiers) do
+        for _, m in ipairs(t.models) do
+            if m == model then return i end
+        end
+    end
+    return 1
+end
+
+local function spawnTarget(model, spot, z, kind, contractSrc, spotIdx)
+    local veh = CreateVehicleServerSetter(joaat(model), 'automobile', spot.x, spot.y, z + 0.3, spot.w)
+    local t = GetGameTimer() + 5000
+    while not DoesEntityExist(veh) and GetGameTimer() < t do Wait(10) end
+    if not DoesEntityExist(veh) then return nil end
+    pcall(SetEntityOrphanMode, veh, 2)
+    local tier = C.tiers[tierOf(model)]
+    local rec = {
+        net = NetworkGetNetworkIdFromEntity(veh), model = model, label = ucfirst(model), plate = randomPlate(),
+        tier = tierOf(model), pins = tier.pins, alarm = tier.alarm, hasTracker = math.random() < tier.tracker,
+        trackerSpot = math.random(#Config.Tracker.spots), locked = true, contract = contractSrc, kind = kind,
+        spot = spot, spotIdx = spotIdx, born = os.time(),
+    }
+    local a, r = math.random() * math.pi * 2, 40.0 + math.random() * 60.0
+    rec.area = vector3(spot.x + math.cos(a) * r, spot.y + math.sin(a) * r, spot.z)
+    SetVehicleNumberPlateText(veh, rec.plate)
+    SetVehicleDoorsLocked(veh, 2)
+    local col = math.random(0, 150)
+    SetVehicleColours(veh, col, col)
+    Entity(veh).state:set('dpStolen', true, true)
+    Entity(veh).state:set('dpTarget', { owner = contractSrc, locked = true, tracker = rec.hasTracker }, true)
+    Targets[rec.net] = rec
+    return rec, veh
+end
+
+-- auto przestaje być „celem” (trafiło na stanowisko, zostało usunięte itp.)
+local function forgetTarget(net, deleteVeh)
+    local rec = Targets[net]
+    Targets[net] = nil
+    local veh = vehFromNet(net)
+    if not veh then return end
+    Entity(veh).state:set('dpTarget', nil, true)
+    if deleteVeh and GetPedInVehicleSeat(veh, -1) == 0 and not DZ.JobByNet(net) then DeleteEntity(veh) end
+    return rec
+end
+
+function DZ.IsScriptVehicle(veh)
+    return Entity(veh).state.dpStolen == true
+end
+
 local function clearContract(src, deleteVeh)
     local c = Active[src]
     if not c then return end
     Active[src] = nil
     if c.net then
-        local veh = vehFromNet(c.net)
-        if veh then
-            Entity(veh).state:set('dpTarget', nil, true)
-            local driver = GetPedInVehicleSeat(veh, -1)
-            if deleteVeh and driver == 0 and not DZ.JobByNet(c.net) then DeleteEntity(veh) end
-        end
+        local rec = Targets[c.net]
+        -- nieukradzione auto ze zlecenia znika; ukradzione zostaje jako zwykły cel
+        if rec and rec.locked then forgetTarget(c.net, deleteVeh)
+        elseif rec then rec.contract = nil end
     end
     TriggerClientEvent('dp-dziupla:client:contract', src, nil)
 end
@@ -136,24 +189,12 @@ DZ.register('contractSpawn', function(src, groundZ)
     if not pc or #(pc.xy - c.spot.xy) > C.spawnDistance + 30.0 then return { ok = false } end
     local z = tonumber(groundZ)
     if not z or math.abs(z - c.spot.z) > 6.0 then z = c.spot.z end
-    local veh = CreateVehicleServerSetter(joaat(c.model), 'automobile', c.spot.x, c.spot.y, z + 0.3, c.spot.w)
-    local t = GetGameTimer() + 5000
-    while not DoesEntityExist(veh) and GetGameTimer() < t do Wait(10) end
-    if not DoesEntityExist(veh) then return { ok = false } end
-    pcall(SetEntityOrphanMode, veh, 2)
-    c.plate = randomPlate()
-    SetVehicleNumberPlateText(veh, c.plate)
-    SetVehicleDoorsLocked(veh, 2)
-    local col = math.random(0, 150)
-    SetVehicleColours(veh, col, col)
-    local p = DZ.Profile(src)
-    local thief = DZ.Fx(p).thief
-    c.net = NetworkGetNetworkIdFromEntity(veh)
-    c.hasTracker = math.random() < c.tracker
-    c.trackerSpot = math.random(#Config.Tracker.spots)
-    c.alarmChance = c.alarm * (1 - 0.35 * thief)
-    c.locked = true
-    Entity(veh).state:set('dpTarget', { owner = src, locked = true, tracker = c.hasTracker }, true)
+    local rec = spawnTarget(c.model, c.spot, z, 'contract', src)
+    if not rec then return { ok = false } end
+    c.net, c.plate = rec.net, rec.plate
+    -- ryzyko z oferty (poziom zlecenia) ma pierwszeństwo przed poziomem modelu
+    rec.pins, rec.alarm, rec.hasTracker = c.pins, c.alarm, math.random() < c.tracker
+    Entity(NetworkGetEntityFromNetworkId(rec.net)).state:set('dpTarget', { owner = src, locked = true, tracker = rec.hasTracker }, true)
     return { ok = true, net = c.net, plate = c.plate, msg = L('contract_spawned', c.label, c.plate) }
 end)
 
@@ -162,10 +203,12 @@ function DZ.DropContract(net)
     for src, c in pairs(Active) do
         if c.net == net then clearContract(src, false) end
     end
+    forgetTarget(net, false)
 end
 
 -- wynik przy wstawieniu auta na stanowisko (wołane z server/chop.lua)
 function DZ.OnChopStart(src, veh, snap, job)
+    forgetTarget(NetworkGetNetworkIdFromEntity(veh), false)
     local c = Active[src]
     if not c or not DZ.SameModel(GetEntityModel(veh), joaat(c.model)) then return end
     if os.time() > c.deadline then return end
@@ -183,60 +226,65 @@ end
 -- --------------------------------------------------------------------------
 --  Wytrych / wybicie szyby
 -- --------------------------------------------------------------------------
-local function targetOf(src, netId)
+local function targetOf(netId)
     local veh = vehFromNet(netId)
-    if not veh then return nil end
-    local st = Entity(veh).state.dpTarget
-    if not st or st.owner ~= src then return nil end
-    return veh, Active[src]
+    local rec = veh and Targets[netId]
+    if not rec then return nil end
+    return veh, rec
 end
 
-local function unlockTarget(veh, c)
+local function alarmChance(src, rec)
+    return rec.alarm * (1 - 0.35 * DZ.Fx(DZ.Profile(src)).thief)
+end
+
+local function unlockTarget(veh, rec)
     local st = Entity(veh).state.dpTarget or {}
     SetVehicleDoorsLocked(veh, 1)
-    c.locked = false
-    Entity(veh).state:set('dpTarget', { owner = st.owner, locked = false, tracker = c.hasTracker }, true)
+    rec.locked = false
+    Entity(veh).state:set('dpTarget', { owner = st.owner, locked = false, tracker = rec.hasTracker }, true)
 end
 
 DZ.register('lockpickBegin', function(src, netId)
-    local veh, c = targetOf(src, netId)
-    if not veh or not c or not c.locked then return { ok = false } end
+    local veh, rec = targetOf(netId)
+    if not veh or not rec.locked then return { ok = false } end
+    if not DZ.HasAccess(src) then return { ok = false, msg = L('no_access') } end
     if not nearEnt(src, veh, 4.0) then return { ok = false, msg = L('too_far') } end
     local p = DZ.Profile(src)
-    if (p.cons.lockpick or 0) <= 0 then return { ok = false, msg = L('lockpick_none') } end
-    local fx = DZ.Fx(p)
+    local picks = DZ.ConsCount(src, p, 'lockpick')
+    if picks <= 0 then return { ok = false, msg = L('lockpick_none') } end
     local token = DZ.token()
     Sess[src] = { kind = 'lockpick', token = token, net = netId, started = os.time() }
-    return { ok = true, token = token, spec = { pins = c.pins, seed = math.random(1, 2147483646), picks = p.cons.lockpick, shear = 0.05 + 0.02 * fx.thief } }
+    return { ok = true, token = token, spec = { pins = rec.pins, seed = math.random(1, 2147483646), picks = picks, shear = 0.05 + 0.02 * DZ.Fx(p).thief } }
 end)
 
 DZ.register('lockpickFinish', function(src, token, success, broke)
     local s = Sess[src]
     if not s or s.kind ~= 'lockpick' or s.token ~= token then return { ok = false } end
     Sess[src] = nil
-    local veh, c = targetOf(src, s.net)
-    if not veh or not c then return { ok = false } end
+    local veh, rec = targetOf(s.net)
+    if not veh then return { ok = false } end
     local p = DZ.Profile(src)
-    p.cons.lockpick = math.max(0, (p.cons.lockpick or 0) - math.floor(DZ.num(broke, 0, 20)))
+    DZ.ConsUse(src, p, 'lockpick', math.floor(DZ.num(broke, 0, 20)))
     DZ.Save(p)
+    local chance = alarmChance(src, rec)
     if success ~= true then
-        return { ok = true, success = false, msg = L('lockpick_fail'), alarm = math.random() < c.alarmChance * 0.5, plate = c.plate }
+        return { ok = true, success = false, msg = L('lockpick_fail'), alarm = math.random() < chance * 0.5, plate = rec.plate }
     end
     if os.time() - s.started < Config.Security.lockpickMin or not nearEnt(src, veh, 4.0) then
         DZ.warn(src, 'wytrych za szybko / za daleko')
         return { ok = false, msg = L('suspicious') }
     end
-    unlockTarget(veh, c)
-    local alarm = math.random() < c.alarmChance
-    return { ok = true, success = true, alarm = alarm, plate = c.plate, msg = L('lockpick_ok') }
+    unlockTarget(veh, rec)
+    return { ok = true, success = true, alarm = math.random() < chance, plate = rec.plate, msg = L('lockpick_ok') }
 end)
 
 DZ.register('smash', function(src, netId)
-    local veh, c = targetOf(src, netId)
-    if not veh or not c or not c.locked then return { ok = false } end
+    local veh, rec = targetOf(netId)
+    if not veh or not rec.locked then return { ok = false } end
+    if not DZ.HasAccess(src) then return { ok = false, msg = L('no_access') } end
     if not nearEnt(src, veh, 4.0) then return { ok = false, msg = L('too_far') } end
-    unlockTarget(veh, c)
-    return { ok = true, alarm = Config.Contracts.smashAlarm or math.random() < c.alarmChance, plate = c.plate }
+    unlockTarget(veh, rec)
+    return { ok = true, alarm = Config.Contracts.smashAlarm or math.random() < alarmChance(src, rec), plate = rec.plate }
 end)
 
 -- --------------------------------------------------------------------------
@@ -247,14 +295,13 @@ DZ.register('scanBegin', function(src, netId)
     if not veh or not nearEnt(src, veh, 5.0) then return { ok = false, msg = L('too_far') } end
     local p = DZ.Profile(src)
     if not DZ.HasTool(p, 'scanner') then return { ok = false, msg = L('part_tool', Config.Tools.scanner.label) } end
-    local st = Entity(veh).state.dpTarget
-    local c = st and Active[st.owner]
-    local has = c and c.net == netId and c.hasTracker or false
+    local rec = Targets[netId]
+    local has = rec and rec.hasTracker or false
     local token = DZ.token()
     Sess[src] = { kind = 'scan', token = token, net = netId, started = os.time() }
     return { ok = true, token = token, spec = {
         seed = math.random(1, 2147483646), spots = Config.Tracker.spots,
-        spot = has and c.trackerSpot or 0, tech = DZ.Fx(p).tech,
+        spot = has and rec.trackerSpot or 0, tech = DZ.Fx(p).tech,
     } }
 end)
 
@@ -264,12 +311,12 @@ DZ.register('scanFinish', function(src, token, found)
     Sess[src] = nil
     local veh = vehFromNet(s.net)
     if not veh then return { ok = false } end
-    local st = Entity(veh).state.dpTarget
-    local c = st and Active[st.owner]
-    if not (c and c.net == s.net and c.hasTracker) then return { ok = true, msg = L('tracker_none') } end
+    local st = Entity(veh).state.dpTarget or {}
+    local rec = Targets[s.net]
+    if not (rec and rec.hasTracker) then return { ok = true, msg = L('tracker_none') } end
     if found ~= true then return { ok = true } end
     if os.time() - s.started < Config.Security.scannerMin then return { ok = false, msg = L('suspicious') } end
-    c.hasTracker = false
+    rec.hasTracker = false
     Entity(veh).state:set('dpTarget', { owner = st.owner, locked = st.locked, tracker = false }, true)
     return { ok = true, removed = true, msg = L('tracker_removed') }
 end)
@@ -290,18 +337,20 @@ CreateThread(function()
             if now > c.deadline then
                 Bridge.Notify(src, L('contract_expired'), 'bad')
                 clearContract(src, true)
-            elseif c.net and c.hasTracker and not c.locked then
-                local veh = vehFromNet(c.net)
-                if veh then
-                    local driver = GetPedInVehicleSeat(veh, -1)
-                    if driver ~= 0 then
-                        c.trackStart = c.trackStart or now
-                        c.lastPing = c.lastPing or (now - T.interval + T.firstDelay)
-                        if now - c.lastPing >= T.interval then
-                            c.lastPing = now
-                            local who = playerFromPed(driver) or src
-                            dispatch(who, 'tracker', GetEntityCoords(veh), { plate = c.plate, model = c.label })
-                        end
+            end
+        end
+        for net, rec in pairs(Targets) do
+            local veh = vehFromNet(net)
+            if not veh then
+                Targets[net] = nil
+            elseif rec.hasTracker and not rec.locked then
+                local driver = GetPedInVehicleSeat(veh, -1)
+                if driver ~= 0 then
+                    rec.lastPing = rec.lastPing or (now - T.interval + T.firstDelay)
+                    if now - rec.lastPing >= T.interval then
+                        rec.lastPing = now
+                        local who = playerFromPed(driver)
+                        if who then dispatch(who, 'tracker', GetEntityCoords(veh), { plate = rec.plate, model = rec.label }) end
                     end
                 end
             end
@@ -309,8 +358,76 @@ CreateThread(function()
     end
 end)
 
--- ==========================================================================
---  ZAMÓWIENIA KLIENTÓW
+-- --------------------------------------------------------------------------
+--  Auta „na mieście”: skrypt trzyma kilka zamkniętych aut do kradzieży bez zlecenia
+-- --------------------------------------------------------------------------
+local ST = Config.StreetTargets
+
+local function playerNear(v, r)
+    for _, id in ipairs(GetPlayers()) do
+        local ped = GetPlayerPed(id)
+        if ped ~= 0 and #(GetEntityCoords(ped).xy - v.xy) < r then return true end
+    end
+    return false
+end
+
+local function pickStreetModel()
+    local total = 0
+    for i, w in ipairs(ST.tierWeights) do if C.tiers[i] then total = total + w end end
+    local r = math.random() * total
+    for i, w in ipairs(ST.tierWeights) do
+        if C.tiers[i] then
+            r = r - w
+            if r <= 0 then return DZ.pick(C.tiers[i].models) end
+        end
+    end
+    return DZ.pick(C.tiers[1].models)
+end
+
+if ST and ST.enabled then
+    CreateThread(function()
+        Wait(15000)
+        while true do
+            local now, used, n = os.time(), {}, 0
+            for net, rec in pairs(Targets) do
+                if rec.kind == 'street' then
+                    n = n + 1
+                    if rec.spotIdx then used[rec.spotIdx] = true end
+                    -- nikt go nie ruszył przez długi czas – przestawiamy w inne miejsce
+                    if rec.locked and now - rec.born > ST.lifetime and not playerNear(rec.spot, ST.clearRadius) then
+                        forgetTarget(net, true)
+                        n = n - 1
+                    end
+                end
+            end
+            for _ = n + 1, ST.count do
+                local spots = {}
+                for idx, sp in ipairs(ST.spots) do
+                    if not used[idx] and not playerNear(sp, ST.clearRadius) then spots[#spots + 1] = idx end
+                end
+                if #spots == 0 then break end
+                local idx = DZ.pick(spots)
+                used[idx] = true
+                local sp = ST.spots[idx]
+                spawnTarget(pickStreetModel(), sp, sp.z, 'street', nil, idx)
+            end
+            Wait(ST.checkEvery * 1000)
+        end
+    end)
+end
+
+-- cynk: kup przybliżoną lokalizację auta „na mieście”
+DZ.register('tipBuy', function(src, net)
+    net = tonumber(net)
+    local rec = net and Targets[net]
+    if not rec or rec.kind ~= 'street' or not rec.locked then return { ok = false, msg = L('contract_gone') } end
+    local price = ST.tipPrice[rec.tier] or 200
+    if not Bridge.RemoveMoney(src, Config.ShopAccount, price, 'dp-dziupla-cynk') then return { ok = false, msg = L('no_money', price) } end
+    TriggerClientEvent('dp-dziupla:client:tip', src, { x = rec.area.x, y = rec.area.y, z = rec.area.z, label = rec.label })
+    return { ok = true, msg = L('tip_bought', rec.label) }
+end)
+
+
 -- ==========================================================================
 local O = Config.Orders
 local orderTypes = {}
@@ -354,8 +471,8 @@ local function matchOrder(p, lines)
     local picked, taken = {}, {}
     for _, ln in ipairs(lines) do
         local cands = {}
-        for _, it in ipairs(p.wh) do
-            if it.t == ln.t and not it.res and not taken[it.u] and (it.c or 0) >= ln.min then cands[#cands + 1] = it end
+        for _, it in ipairs(DZ.WhList(p)) do
+            if it.t == ln.t and not DZ.IsRes(p, it.u) and not taken[it.u] and (it.c or 0) >= ln.min then cands[#cands + 1] = it end
         end
         table.sort(cands, function(a, b) return a.c < b.c end)
         if #cands < ln.n then return nil, ln end
@@ -371,8 +488,8 @@ local function orderHave(p, lines)
     local out = {}
     for i, ln in ipairs(lines) do
         local n = 0
-        for _, it in ipairs(p.wh) do
-            if it.t == ln.t and not it.res and (it.c or 0) >= ln.min then n = n + 1 end
+        for _, it in ipairs(DZ.WhList(p)) do
+            if it.t == ln.t and not DZ.IsRes(p, it.u) and (it.c or 0) >= ln.min then n = n + 1 end
         end
         out[i] = n
     end
@@ -385,8 +502,7 @@ local function releaseOrder(src, p)
     p = p or DZ.Profile(src)
     if p then
         for _, u in ipairs(o.uids) do
-            local it = DZ.WhFind(p, u)
-            if it then it.res = nil end
+            DZ.SetRes(p, u, false)
         end
         DZ.Save(p)
     end
@@ -406,7 +522,7 @@ DZ.register('orderAccept', function(src, id)
     if not offer then return { ok = false, msg = L('contract_gone') } end
     local uids = matchOrder(p, offer.lines)
     if not uids then return { ok = false, msg = L('order_missing') } end
-    for _, u in ipairs(uids) do DZ.WhFind(p, u).res = true end
+    for _, u in ipairs(uids) do DZ.SetRes(p, u, true) end
     DZ.Save(p)
     offer.uids = uids
     offer.deadline = os.time() + offer.time
@@ -502,7 +618,9 @@ DZ.register('exportDeliver', function(src, netId, snap)
     local cls = math.floor(DZ.num(snap.class, 0, 22))
     if cls ~= e.class then return { ok = false, msg = L('export_wrong', e.label) } end
     local plate = (GetVehicleNumberPlateText(veh) or ''):gsub('^%s+', ''):gsub('%s+$', '')
-    if not Entity(veh).state.dpTarget and ServerHooks.IsVehicleOwned(plate) then return { ok = false, msg = L('chop_owned') } end
+    local stolen = DZ.IsScriptVehicle(veh)
+    if Config.OnlyScriptVehicles and not stolen then return { ok = false, msg = L('not_script_car') } end
+    if not stolen and ServerHooks.IsVehicleOwned(plate) then return { ok = false, msg = L('chop_owned') } end
     for seat = -1, 6 do
         local ped = GetPedInVehicleSeat(veh, seat)
         if ped ~= 0 and ped ~= GetPlayerPed(src) then return { ok = false, msg = L('chop_occupied') } end
@@ -516,6 +634,7 @@ DZ.register('exportDeliver', function(src, netId, snap)
         if DoesEntityExist(veh) then DeleteEntity(veh) end
     end)
     if Active[src] and Active[src].net == netId then clearContract(src, false) end
+    forgetTarget(netId, false)
     DZ.Earn(src, p, pay, 'eksport')
     DZ.AddXP(src, p, 50)
     p.stats.exports = p.stats.exports + 1
@@ -584,6 +703,13 @@ function DZ.StreetView(src, p, data)
     if not c then
         for i, o in ipairs(contractOffers(src, p)) do data.contracts.offers[i] = contractView(o) end
     end
+    data.street = {}
+    for net, rec in pairs(Targets) do
+        if rec.kind == 'street' and rec.locked then
+            data.street[#data.street + 1] = { net = net, label = rec.label, model = rec.model, tier = rec.tier, price = ST.tipPrice[rec.tier] or 200, tracker = rec.tier >= 3 }
+        end
+    end
+    table.sort(data.street, function(a2, b2) return a2.tier > b2.tier end)
     local o = OActive[src]
     data.orders = { offers = {} }
     if o then

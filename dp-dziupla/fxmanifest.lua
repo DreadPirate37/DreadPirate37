@@ -28,6 +28,7 @@ server_scripts {
     'bridge/server.lua',
     'server/hooks.lua',
     'server/main.lua',
+    'server/storage.lua',
     'server/chop.lua',
     'server/street.lua',
 }

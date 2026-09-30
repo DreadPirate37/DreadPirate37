@@ -157,7 +157,7 @@
         </div>
         <h2>Jak to działa</h2>
         <ol class="howto">
-          <li>Weź zlecenie albo przyprowadź dowolne auto z ulicy (nie z garażu gracza).</li>
+          <li>Weź zlecenie albo kup cynk na auto stojące na mieście – dziupla bierze tylko auta z listy.</li>
           <li>Wjedź na stanowisko i wciśnij <b>E</b>. Patrz na część, <b>E</b> = demontaż, <b>G</b> = oględziny, <b>H</b> = podnośnik.</li>
           <li>Odkręcaj jak w warsztacie: dobierz nasadkę, uważaj na rdzę, klipsy, płyny i akumulator.</li>
           <li>Zdjęte części zanieś na regał. Sprzedaj paserowi, zregeneruj na stole albo zrealizuj zamówienie.</li>
@@ -210,10 +210,18 @@
       else exp = (ex.offers || []).map(o => `
         <div class="card">
           <div class="c-head"><h3>Kontener: ${W.esc(o.label)}</h3><b>${W.fmtMoney(o.pay)}</b></div>
-          <p>Dowolne auto tej klasy, stan min. ${pct(o.minHealth)}. Czas: ${mins(o.time)}. Całe auto – bez rozbierania.</p>
+          <p>Auto z listy (zlecenie albo cynk) tej klasy, stan min. ${pct(o.minHealth)}. Czas: ${mins(o.time)}. Całe auto – bez rozbierania.</p>
           <div class="c-foot"><span></span><button class="btn primary" data-act="exportAccept" data-arg="${W.esc(o.id)}">Biorę</button></div>
         </div>`).join('');
+      const street = (this.data.street || []).map(t => `
+        <div class="card">
+          <div class="c-head"><h3>${W.esc(t.label)}</h3><span class="tier">${stars(t.tier)}</span></div>
+          <p>Zaparkowane i zamknięte gdzieś w mieście.${t.tracker ? ' <b>Możliwy nadajnik GPS.</b>' : ''} Bez premii za zlecenie – zarabiasz na częściach.</p>
+          <div class="c-foot"><span></span><button class="btn primary" data-act="tipBuy" data-arg="${t.net}">Kup cynk ${W.fmtMoney(t.price)}</button></div>
+        </div>`).join('');
       return `<h2>Lista życzeń – auta na zamówienie</h2><div class="cards">${offers || '<div class="card empty">Brak ofert.</div>'}</div>
+        <h2>Auta na mieście – cynki</h2><p class="lead">Dziupla bierze tylko auta z listy. Te stoją teraz na mieście – kup cynk, żeby dostać przybliżone miejsce.</p>
+        <div class="cards">${street || '<div class="card empty">Chwilowo nic nie stoi.</div>'}</div>
         <h2>Eksport w kontenerze</h2><div class="cards">${exp}</div>`;
     },
 

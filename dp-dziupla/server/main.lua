@@ -87,8 +87,6 @@ function DZ.Profile(src)
         p.id = id
     end
     for k in pairs(newProfile(id).stats) do p.stats[k] = p.stats[k] or 0 end
-    -- rezerwacje (zamówienia, stół) żyją tylko w pamięci – po restarcie zdejmujemy je
-    for _, it in ipairs(p.wh) do it.res = nil end
     Profiles[id] = p
     return p
 end
@@ -190,30 +188,7 @@ end
 -- --------------------------------------------------------------------------
 --  Magazyn części
 -- --------------------------------------------------------------------------
-function DZ.WhCap(p)
-    return Config.Warehouse.baseSlots + (p.upg.shelf or 0) * Config.Warehouse.perShelf
-end
-
-function DZ.WhFree(p) return DZ.WhCap(p) - #p.wh end
-
-function DZ.WhAdd(p, item)
-    p.seq = (p.seq or 0) + 1
-    item.u = p.seq
-    p.wh[#p.wh + 1] = item
-    return item
-end
-
-function DZ.WhFind(p, uid)
-    for i, it in ipairs(p.wh) do
-        if it.u == uid then return it, i end
-    end
-end
-
-function DZ.WhTake(p, uid)
-    local it, i = DZ.WhFind(p, uid)
-    if it then table.remove(p.wh, i) end
-    return it
-end
+-- DZ.WhCap / WhFree / WhAdd / WhFind / WhTake / WhList / WhUpdate – patrz server/storage.lua
 
 function DZ.ItemLabel(it)
     local t = Parts.Types[it.t]
@@ -346,7 +321,7 @@ function DZ.ItemView(p, it)
     return {
         u = it.u, t = it.t, label = DZ.ItemLabel(it), cat = t.cat, catLabel = Config.Categories[t.cat or 'scrap'],
         cond = it.c or 0, value = DZ.Price(p, it), vehicle = it.v, regen = it.r == true,
-        bench = t.bench, reserved = it.res == true,
+        bench = t.bench, reserved = DZ.IsRes(p, it.u),
     }
 end
 
@@ -360,7 +335,7 @@ function DZ.ProfileView(p)
     }
 end
 
-local function shopView(p)
+local function shopView(src, p)
     local lvl = DZ.Level(p)
     local tools, cons, upg = {}, {}, {}
     for k, t in pairs(Config.Tools) do
@@ -370,7 +345,7 @@ local function shopView(p)
     end
     table.sort(tools, function(a, b) return a.price < b.price end)
     for k, c in pairs(Config.Consumables) do
-        cons[#cons + 1] = { key = k, label = c.label, price = c.price, have = p.cons[k] or 0, max = c.max }
+        cons[#cons + 1] = { key = k, label = c.label, price = c.price, have = DZ.ConsCount(src, p, k), max = c.max }
     end
     table.sort(cons, function(a, b) return a.price < b.price end)
     for k, u in pairs(Config.Upgrades) do
@@ -406,13 +381,13 @@ end
 function DZ.Overview(src)
     local p = DZ.Profile(src)
     local items = {}
-    for i, it in ipairs(p.wh) do items[i] = DZ.ItemView(p, it) end
+    for i, it in ipairs(DZ.WhList(p)) do items[i] = DZ.ItemView(p, it) end
     local shop = DZ.ShopAt(src)
     local data = {
         profile = DZ.ProfileView(p),
         warehouse = { items = items, cap = DZ.WhCap(p) },
         market = marketView(),
-        shop = shopView(p),
+        shop = shopView(src, p),
         perks = perkView(p),
         atShop = shop ~= nil,
         cash = nil,
@@ -442,9 +417,12 @@ DZ.register('buy', function(src, key, qty)
         price, apply = t.price, function() p.tools[key] = true end
     elseif Config.Consumables[key] then
         local c = Config.Consumables[key]
-        qty = math.min(qty, c.max - (p.cons[key] or 0))
+        qty = math.min(qty, c.max - DZ.ConsCount(src, p, key))
         if qty <= 0 then return { ok = false, msg = 'Nie zmieścisz więcej.' } end
-        price, apply = c.price * qty, function() p.cons[key] = (p.cons[key] or 0) + qty end
+        if DZ.InvMode == 'ox' and not exports.ox_inventory:CanCarryItem(src, Config.Inventory.items[key], qty) then
+            return { ok = false, msg = 'Nie uniesiesz tego – zrób miejsce w ekwipunku.' }
+        end
+        price, apply = c.price * qty, function() DZ.ConsAdd(src, p, key, qty) end
     elseif Config.Upgrades[key] then
         local u = Config.Upgrades[key]
         if (p.upg[key] or 0) >= u.max then return { ok = false, msg = 'Maksymalny poziom ulepszenia.' } end
@@ -490,7 +468,7 @@ local function sellCommon(src, uids, scrapOnly)
     local total, n = 0, 0
     for _, u in ipairs(uids) do
         local it = DZ.WhFind(p, tonumber(u))
-        if it and not it.res then
+        if it and not DZ.IsRes(p, it.u) then
             local t = Parts.Types[it.t]
             local price
             if scrapOnly then
@@ -499,9 +477,10 @@ local function sellCommon(src, uids, scrapOnly)
                 price = DZ.Price(p, it)
                 if t then DZ.MarketSold(t.cat, price) end
             end
-            DZ.WhTake(p, it.u)
-            total = total + price
-            n = n + 1
+            if DZ.WhTake(p, it.u) then
+                total = total + price
+                n = n + 1
+            end
         end
     end
     if n == 0 then return { ok = false, msg = 'Nic nie sprzedano.' } end
@@ -547,14 +526,14 @@ end)
 exports('AddPart', function(src, partType, cond, mult)
     local p = DZ.Profile(src)
     if not p or not Parts.Types[partType] or DZ.WhFree(p) <= 0 then return false end
-    DZ.WhAdd(p, { t = partType, c = math.floor(DZ.num(cond, 0, 100)), m = tonumber(mult) or 1.0 })
+    local ok = DZ.WhAdd(p, { t = partType, c = math.floor(DZ.num(cond, 0, 100)), m = tonumber(mult) or 1.0 }) ~= nil
     DZ.Save(p)
-    return true
+    return ok
 end)
 
 exports('GetWarehouse', function(src)
     local p = DZ.Profile(src)
-    return p and p.wh or {}
+    return p and DZ.WhList(p) or {}
 end)
 
 math.randomseed(os.time())

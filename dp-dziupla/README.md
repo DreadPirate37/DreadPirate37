@@ -12,7 +12,9 @@ na montażownicy, hałas i brama (jak w Thief Simulator), progresja i drzewko um
 
 - Frameworki: **ESX, QBCore, QBox** (wykrywane automatycznie) albo standalone
 - Interakcja: własny celownik na części + `[E]`; NPC przez **ox_target / qb-target**, jeśli są
+- Ekwipunek: **ox_inventory** (części jako itemy z metadanymi w prywatnym stashu, materiały jako itemy) albo wbudowany magazyn KVP – wybierane automatycznie
 - Zapis: KVP zasobu, **bez bazy danych** (oxmysql jest opcjonalny, tylko do sprawdzania aut graczy)
+- **Kradnie się tylko auta zespawnowane przez skrypt** (zlecenia i auta „na mieście”) – zwykłe auta NPC i graczy dziupla odrzuca
 - Zero plików audio i obrazków: grafika na canvasie, dźwięki syntezowane przez WebAudio
 
 ---
@@ -95,7 +97,11 @@ Stoi w dziupli (albo porozmawiaj z paserem). Zakładki:
 4. Droższe auta mają **nadajnik GPS**: dopóki jedziesz, policja co 45 s dostaje namiar. Skanerem (**E** przy aucie albo `/skaner`) szukasz go na sylwetce auta po sygnale, sprawdzasz kryjówki i przecinasz przewód w kolorze diody.
 5. Wstawienie auta na stanowisko wypłaca premię za zlecenie, a potem rozbierasz je normalnie.
 
-Można też przyprowadzić **dowolne auto z ulicy**. Auta z garaży graczy są blokowane (sprawdzanie przez oxmysql w `server/hooks.lua`).
+### Auta „na mieście” i cynki
+Dziupla nie bierze przypadkowych aut – tylko te z listy (`Config.OnlyScriptVehicles = true`). Poza zleceniami skrypt
+trzyma na mapie kilka zamkniętych aut (`Config.StreetTargets`: ile, jakie poziomy, miejsca, czas życia). Można je
+znaleźć samemu albo kupić w ChopNecie **cynk** – przybliżony obszar na mapie. Każde takie auto może mieć alarm
+i nadajnik GPS, a wytrych działa tylko na nich. Auta z garaży graczy są dodatkowo blokowane (`server/hooks.lua`).
 
 ### Zamówienia klientów
 Klient chce np. „4× Koło min. 60% + Fotel min. 45%”. Po przyjęciu części są rezerwowane w magazynie,
@@ -150,7 +156,7 @@ skaner GPS, montażownica, puncerzy.
 ---
 
 ## Instalacja
-1. Wrzuć folder `dp-dziupla` do `resources/`.
+1. Wrzuć folder `dp-dziupla` do `resources/`. Przy **ox_inventory** dopisz itemy z `install/ox_items.lua` do `ox_inventory/data/items.lua`.
 2. W `server.cfg` **po** frameworku (i oxmysql / targecie, jeśli ich używasz):
    ```
    ensure dp-dziupla
@@ -192,6 +198,14 @@ index.html?paint   index.html?hud
 W `config_parts.lua` dopisz `add({...})` z kotwicą (`bone` albo `fb` = ułamek wymiarów auta),
 listą `F` (typ, rozmiar, pozycja względem kotwicy), kamerą `cam` i ewentualnymi `requires`/`lift`.
 Pozycje są w metrach w układzie auta: x = w bok (dla części bocznych „na zewnątrz”), y = do przodu, z = w górę.
+
+## ox_inventory
+- `Config.Inventory.mode = 'auto'` wybiera ox, jeśli `ox_inventory` jest na serwerze (działa z ESX, QBCore i QBox).
+- Każda zdjęta część to item `dz_part` z metadanymi: typ, stan, mnożnik wartości, z jakiego auta, czy regenerowana, prawdziwa masa. Nazwa w ekwipunku np. „Koło (82%)”.
+- Części trafiają do **prywatnego stasha** gracza (`dz_wh_<id>`), który otwiera się przy regale **[E]**. Części można z niego wyjąć, przekazać innym graczom i odłożyć z powrotem. Laptop sprzedaje, regeneruje i pakuje zamówienia z zawartości stasha.
+- Pojemność stasha = sloty magazynu (rosną z regałami), maks. waga w `Config.Inventory.stashWeight`.
+- Wytrychy, penetrant, tarcze i wykrętaki to zwykłe itemy (nazwy w `Config.Inventory.items`), kupowane w ChopNecie i zużywane z ekwipunku.
+- Przy pierwszym uruchomieniu z ox części z dawnego magazynu KVP są automatycznie przenoszone do stasha.
 
 ## Integracje (`client/hooks.lua`, `server/hooks.lua`)
 - **Kluczyki:** qb/qbx-vehiclekeys, wasabi_carlock, MrNewbVehicleKeys

@@ -100,7 +100,7 @@ local LaptopActions = {
     buy = 'buy', perk = 'perk', perkReset = 'perkReset', sell = 'sell', scrap = 'scrap',
     contractAccept = 'contractAccept', contractCancel = 'contractCancel',
     orderAccept = 'orderAccept', orderCancel = 'orderCancel',
-    exportAccept = 'exportAccept', exportCancel = 'exportCancel',
+    exportAccept = 'exportAccept', exportCancel = 'exportCancel', tipBuy = 'tipBuy',
 }
 
 RegisterNUICallback('laptop', function(data, cb)
@@ -300,6 +300,12 @@ CreateThread(function()
                         if r and r.msg then D.Notify(r.msg, r.closed and 'good' or 'warn') end
                     end },
                 }
+                if D.OxInv then
+                    points[#points + 1] = { v = s.shelf, r = 1.6, help = L('help_stash'), fn = function()
+                        local r = D.Callback('openStash')
+                        if r and r.msg then D.Notify(r.msg, 'bad') end
+                    end }
+                end
                 if s.fence and not D.usingTarget then
                     points[#points + 1] = { v = s.fence, r = 1.8, help = L('help_fence'), fn = function() D.OpenLaptop('warehouse') end }
                 end

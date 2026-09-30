@@ -15,6 +15,7 @@ Locales = {
     help_laptop       = '~INPUT_CONTEXT~ ChopNet (laptop)',
     help_fence        = '~INPUT_CONTEXT~ Porozmawiaj z paserem',
     help_shelf        = '~INPUT_CONTEXT~ Odłóż część na regał',
+    help_stash        = '~INPUT_CONTEXT~ Regał – magazyn części',
     help_bench        = '~INPUT_CONTEXT~ Stół warsztatowy – regeneracja części',
     help_tyre         = '~INPUT_CONTEXT~ Montażownica – rozbierz koło',
     help_gate         = '~INPUT_CONTEXT~ %s bramę',
@@ -109,6 +110,8 @@ Locales = {
     revin_kept        = 'Auto jest teraz twoje (tablice %s).',
     revin_keep_off    = 'Na tym serwerze nie można zatrzymać przebitego auta.',
     not_revin_car     = 'To nie jest auto z twojej przebitki.',
+    not_script_car    = 'Tego auta paser nie weźmie – bierzemy tylko auta z listy (zlecenia i cynki).',
+    tip_bought        = 'Cynk kupiony: %s stoi gdzieś w zaznaczonym obszarze.',
 }
 
 function L(key, ...)

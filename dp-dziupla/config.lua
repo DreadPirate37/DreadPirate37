@@ -137,6 +137,23 @@ Config.Upgrades = {
     shelf = { label = 'Dodatkowy regał (+10 miejsc w magazynie)', price = 2500, max = 5 },
 }
 
+-- Ekwipunek: 'auto' (ox_inventory, jeśli jest uruchomiony) | 'ox' | 'internal'
+-- W trybie ox części to itemy z metadanymi (stan, auto, regeneracja) w prywatnym stashu gracza
+-- przy regale, a materiały eksploatacyjne to zwykłe itemy w ekwipunku. Itemy: install/ox_items.lua
+Config.Inventory = {
+    mode = 'auto',
+    partItem = 'dz_part',
+    stashLabel = 'Magazyn dziupli',
+    stashWeight = 5000000,         -- gramy (5 t – silniki i złom też się zmieszczą)
+    images = false,                -- true = metadata.image = 'dz_<typ>' (wrzuć własne ikony do ox_inventory/web/images)
+    items = {                      -- nazwy itemów materiałów (lockpick zwykle już istnieje na serwerze)
+        lockpick = 'lockpick',
+        penetrant = 'dz_penetrant',
+        disc = 'dz_disc',
+        extractor = 'dz_extractor',
+    },
+}
+
 Config.Warehouse = {
     baseSlots = 25,
     perShelf = 10,
@@ -260,6 +277,38 @@ Config.Contracts = {
         vec4(-47.6, -1116.4, 26.4, 0.0),
     },
     smashAlarm = true,             -- wybicie szyby zawsze włącza alarm
+}
+
+-- Tylko auta zespawnowane przez skrypt (zlecenia + auta „na mieście”) można rozebrać,
+-- zgnieść, wyeksportować i przebić. false = każde auto NPC (auta graczy i tak są blokowane).
+Config.OnlyScriptVehicles = true
+
+-- Auta „na mieście”: skrypt trzyma kilka zamkniętych aut do kradzieży bez zlecenia.
+-- Gracze szukają ich sami albo kupują cynk (przybliżone miejsce) w ChopNecie.
+Config.StreetTargets = {
+    enabled = true,
+    count = 6,                     -- ile aut stoi naraz na mapie
+    checkEvery = 60,               -- co ile sekund uzupełniać pulę
+    lifetime = 2700,               -- po tylu sekundach nieruszone auto jest przestawiane
+    clearRadius = 90.0,            -- nie spawnuj/usuwaj, gdy gracz jest bliżej niż tyle
+    tierWeights = { 50, 30, 15, 5 }, -- szansa na poziom auta (jak w Config.Contracts.tiers)
+    tipPrice = { 150, 300, 600, 1200 }, -- cena cynku według poziomu auta
+    spots = {
+        vec4(-1044.3, -1476.2, 5.0, 305.0),
+        vec4(-592.6, -1122.4, 22.2, 180.0),
+        vec4(152.9, -1036.9, 29.3, 340.0),
+        vec4(441.3, -1021.6, 28.6, 90.0),
+        vec4(1164.8, -1648.6, 36.9, 30.0),
+        vec4(-1464.1, -916.2, 10.1, 50.0),
+        vec4(-247.3, 6211.6, 31.5, 45.0),
+        vec4(1696.4, 3595.2, 35.4, 210.0),
+        vec4(-1609.1, -1027.9, 13.0, 50.0),
+        vec4(809.4, -812.3, 26.2, 90.0),
+        vec4(-1236.4, -331.3, 37.4, 25.0),
+        vec4(-73.3, -592.3, 36.3, 70.0),
+        vec4(930.3, -1553.8, 30.7, 90.0),
+        vec4(-330.8, -1426.2, 30.3, 270.0),
+    },
 }
 
 -- Nadajnik GPS w droższych autach: dopóki go nie znajdziesz i nie wyrwiesz, policja dostaje namiar

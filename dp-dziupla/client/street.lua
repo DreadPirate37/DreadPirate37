@@ -163,12 +163,12 @@ end
 
 RegisterNetEvent('dp-dziupla:client:contract', setContract)
 
+-- zlecenie: spawn auta, gdy gracz podjedzie, i blip na samym aucie
 CreateThread(function()
     while true do
         local sleep = 1500
         if contract and not D.busy then
-            local ped = PlayerPedId()
-            local pc = GetEntityCoords(ped)
+            local pc = GetEntityCoords(PlayerPedId())
             if not contract.net then
                 local sp = contract.spot
                 if #(pc.xy - vector2(sp.x, sp.y)) < Config.Contracts.spawnDistance then
@@ -181,47 +181,96 @@ CreateThread(function()
                 end
             else
                 local veh = vehFromNet(contract.net)
-                if veh then
-                    sleep = 500
-                    if not cBlips.car then
-                        local b = AddBlipForEntity(veh)
-                        SetBlipSprite(b, Config.Blips.contractCar.sprite)
-                        SetBlipColour(b, Config.Blips.contractCar.color)
-                        SetBlipScale(b, Config.Blips.contractCar.scale)
-                        cBlips.car = b
-                        cBlips.route = D.RemoveBlip(cBlips.route)
-                    end
-                    local st = Entity(veh).state.dpTarget or {}
-                    local inside = GetVehiclePedIsIn(ped, false) == veh
-                    local dist = #(pc - GetEntityCoords(veh))
-                    if st.locked and not inside then
-                        local bi = GetEntityBoneIndexByName(veh, 'door_dside_f')
-                        local door = bi ~= -1 and GetWorldPositionOfEntityBone(veh, bi) or GetEntityCoords(veh)
-                        if #(pc - door) < 1.8 then
-                            sleep = 0
-                            D.Help(L('help_lockpick'))
-                            if IsControlJustReleased(0, 38) then CreateThread(function() doLockpick(veh, contract.net) end) end
-                            if IsControlJustReleased(0, 47) then CreateThread(function() doSmash(veh, contract.net) end) end
+                if veh and not cBlips.car then
+                    local b = AddBlipForEntity(veh)
+                    SetBlipSprite(b, Config.Blips.contractCar.sprite)
+                    SetBlipColour(b, Config.Blips.contractCar.color)
+                    SetBlipScale(b, Config.Blips.contractCar.scale)
+                    cBlips.car = b
+                    cBlips.route = D.RemoveBlip(cBlips.route)
+                end
+            end
+        end
+        Wait(sleep)
+    end
+end)
+
+-- auta-cele w pobliżu (zlecenia i auta „na mieście” – wszystkie mają statebag dpTarget)
+local nearTargets = {}
+local keysGiven, trackerWarned = {}, {}
+
+CreateThread(function()
+    while true do
+        local list = {}
+        local pc = GetEntityCoords(PlayerPedId())
+        for _, veh in ipairs(GetGamePool('CVehicle')) do
+            if #(GetEntityCoords(veh) - pc) < 25.0 and Entity(veh).state.dpTarget then list[#list + 1] = veh end
+        end
+        nearTargets = list
+        Wait(1000)
+    end
+end)
+
+CreateThread(function()
+    while true do
+        local sleep = 800
+        if #nearTargets > 0 and not D.busy then
+            local ped = PlayerPedId()
+            local pc = GetEntityCoords(ped)
+            local cur = GetVehiclePedIsIn(ped, false)
+            for _, veh in ipairs(nearTargets) do
+                if DoesEntityExist(veh) then
+                    local st = Entity(veh).state.dpTarget
+                    if st then
+                        local net = NetworkGetNetworkIdFromEntity(veh)
+                        if cur == veh then
+                            if GetPedInVehicleSeat(veh, -1) == ped and not keysGiven[net] and not st.locked then
+                                keysGiven[net] = true
+                                Hooks.GiveKeys(veh, GetVehicleNumberPlateText(veh))
+                            end
+                            if st.tracker and not trackerWarned[net] then
+                                trackerWarned[net] = true
+                                D.Notify(L('tracker_active'), 'bad', 9000)
+                            end
+                        elseif cur == 0 then
+                            local dist = #(pc - GetEntityCoords(veh))
+                            if st.locked then
+                                local bi = GetEntityBoneIndexByName(veh, 'door_dside_f')
+                                local door = bi ~= -1 and GetWorldPositionOfEntityBone(veh, bi) or GetEntityCoords(veh)
+                                if #(pc - door) < 1.8 then
+                                    sleep = 0
+                                    D.Help(L('help_lockpick'))
+                                    if IsControlJustReleased(0, 38) then CreateThread(function() doLockpick(veh, net) end) end
+                                    if IsControlJustReleased(0, 47) then CreateThread(function() doSmash(veh, net) end) end
+                                end
+                            elseif st.tracker ~= false and dist < 3.0 then
+                                sleep = 0
+                                D.Help(L('help_scan'))
+                                if IsControlJustReleased(0, 38) then CreateThread(function() doScan(veh) end) end
+                            end
                         end
-                    elseif inside then
-                        if GetPedInVehicleSeat(veh, -1) == ped and not contract.keys then
-                            contract.keys = true
-                            Hooks.GiveKeys(veh, contract.plate)
-                        end
-                        if st.tracker and not contract.warned then
-                            contract.warned = true
-                            D.Notify(L('tracker_active'), 'bad', 9000)
-                        end
-                    elseif st.tracker ~= false and dist < 3.0 then
-                        sleep = 0
-                        D.Help(L('help_scan'))
-                        if IsControlJustReleased(0, 38) then CreateThread(function() doScan(veh) end) end
                     end
                 end
             end
         end
         Wait(sleep)
     end
+end)
+
+-- cynk kupiony w ChopNecie: obszar na mapie na 10 minut
+local tipBlips = {}
+RegisterNetEvent('dp-dziupla:client:tip', function(t)
+    local r = AddBlipForRadius(t.x, t.y, t.z, 110.0)
+    SetBlipColour(r, 5)
+    SetBlipAlpha(r, 90)
+    local b = D.Blip(vector3(t.x, t.y, t.z), { sprite = 225, color = 5, scale = 0.7 }, 'Cynk: ' .. t.label, false)
+    SetNewWaypoint(t.x, t.y)
+    tipBlips[#tipBlips + 1] = r
+    tipBlips[#tipBlips + 1] = b
+    SetTimeout(600000, function()
+        D.RemoveBlip(r)
+        D.RemoveBlip(b)
+    end)
 end)
 
 -- --------------------------------------------------------------------------
@@ -390,6 +439,7 @@ AddEventHandler('onResourceStop', function(res)
     D.RemoveBlip(oBlip)
     D.RemoveBlip(eBlip)
     D.RemoveBlip(dealerBlip)
+    for _, b in ipairs(tipBlips) do D.RemoveBlip(b) end
     if dealerPed and DoesEntityExist(dealerPed) then DeleteEntity(dealerPed) end
     if lp or scan then SetNuiFocus(false, false) end
 end)

@@ -245,6 +245,8 @@ CreateThread(function()
         if GetResourceState('ox_target') == 'started' then D.usingTarget = 'ox'
         elseif GetResourceState('qb-target') == 'started' then D.usingTarget = 'qb' end
     end
+    local m = Config.Inventory.mode
+    D.OxInv = m == 'ox' or (m == 'auto' and GetResourceState('ox_inventory') == 'started')
 end)
 
 function D.TargetPed(ped, name, icon, label, fn)

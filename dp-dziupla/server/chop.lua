@@ -173,8 +173,9 @@ local function startJob(src, netId, rawSnap, mode)
     end
     if Config.ClassMult[snap.class] == false or Config.ClassMult[snap.class] == nil then return { ok = false, msg = L('chop_class') } end
     local plate = trimPlate(GetVehicleNumberPlateText(veh))
-    local target = Entity(veh).state.dpTarget
-    if not target and ServerHooks.IsVehicleOwned(plate) then return { ok = false, msg = L('chop_owned') } end
+    local stolen = DZ.IsScriptVehicle and DZ.IsScriptVehicle(veh)
+    if Config.OnlyScriptVehicles and not stolen then return { ok = false, msg = L('not_script_car') } end
+    if not stolen and ServerHooks.IsVehicleOwned(plate) then return { ok = false, msg = L('chop_owned') } end
 
     jobSeq = jobSeq + 1
     local fx = DZ.Fx(p)
@@ -324,7 +325,7 @@ DZ.register('partBegin', function(src, jobId, partId)
             cond = pt.c, value = est, F = spec, flags = job.flags, heavy = tdef and tdef.heavy or false,
         },
         ctx = {
-            tools = DZ.OwnedTools(p), cons = p.cons, fx = fx, sockets = Parts.Sockets, bits = Parts.Bits,
+            tools = DZ.OwnedTools(p), cons = DZ.ConsTable(src, p), fx = fx, sockets = Parts.Sockets, bits = Parts.Bits,
             vehicle = job.label, lift = job.lift,
         },
     }
@@ -395,7 +396,7 @@ DZ.register('partFinish', function(src, token, report)
     local used = type(report.used) == 'table' and report.used or {}
     for _, k in ipairs({ 'penetrant', 'disc', 'extractor' }) do
         local u = math.floor(DZ.num(used[k], 0, 99))
-        p.cons[k] = math.max(0, (p.cons[k] or 0) - u)
+        if u > 0 then DZ.ConsUse(src, p, k, u) end
     end
 
     for i in ipairs(def.F) do pt.done[i] = true end
@@ -482,10 +483,10 @@ DZ.register('carryStore', function(src)
     end
     if not ok then return { ok = false, msg = L('too_far') } end
     local p = DZ.Profile(src)
+    if not DZ.WhAdd(p, it) then return { ok = false, msg = L('warehouse_full') } end
     Carry[src] = nil
-    DZ.WhAdd(p, it)
     DZ.Save(p)
-    return { ok = true, msg = L('carry_stored', DZ.ItemLabel(it), #p.wh, DZ.WhCap(p)) }
+    return { ok = true, msg = L('carry_stored', DZ.ItemLabel(it), DZ.WhCount(p), DZ.WhCap(p)) }
 end)
 
 DZ.register('carryState', function(src)
@@ -532,9 +533,9 @@ end)
 DZ.register('benchList', function(src, mode)
     local p = DZ.Profile(src)
     local out = {}
-    for _, it in ipairs(p.wh) do
+    for _, it in ipairs(DZ.WhList(p)) do
         local t = Parts.Types[it.t]
-        if t and not it.res then
+        if t and not DZ.IsRes(p, it.u) then
             local fits = (mode == 'split' and it.t == 'wheel') or (mode ~= 'split' and t.bench and t.bench ~= 'split' and not it.r)
             if fits then out[#out + 1] = DZ.ItemView(p, it) end
         end
@@ -546,7 +547,7 @@ DZ.register('benchBegin', function(src, uid, mode)
     if Sessions[src] then return { ok = false, msg = L('busy') } end
     local p = DZ.Profile(src)
     local it = DZ.WhFind(p, tonumber(uid))
-    if not it or it.res then return { ok = false, msg = L('error') } end
+    if not it or DZ.IsRes(p, it.u) then return { ok = false, msg = L('error') } end
     local t = Parts.Types[it.t]
     local shopOk = false
     for _, shop in ipairs(Config.Shops) do
@@ -566,7 +567,7 @@ DZ.register('benchBegin', function(src, uid, mode)
         kind = t.bench
     end
     local token = DZ.token()
-    it.res = true
+    DZ.SetRes(p, it.u, true)
     Sessions[src] = { kind = 'bench', token = token, uid = it.u, mode = kind, started = os.time() }
     return { ok = true, token = token, spec = { mode = kind, seed = math.random(1, 2147483646), label = DZ.ItemLabel(it), cond = it.c, cap = 20 + DZ.Fx(p).restorer } }
 end)
@@ -575,8 +576,7 @@ local function benchRelease(src)
     local s = Sessions[src]
     if not s or s.kind ~= 'bench' then return end
     local p = DZ.Profile(src)
-    local it = p and DZ.WhFind(p, s.uid)
-    if it then it.res = nil end
+    if p then DZ.SetRes(p, s.uid, false) end
     Sessions[src] = nil
 end
 
@@ -598,7 +598,7 @@ DZ.register('benchFinish', function(src, token, score)
     local it = DZ.WhFind(p, s.uid)
     Sessions[src] = nil
     if not it then return { ok = false, msg = L('error') } end
-    it.res = nil
+    DZ.SetRes(p, it.u, false)
     score = DZ.num(score, 0, 1)
     local res = { ok = true }
     if s.mode == 'split' then
@@ -613,6 +613,7 @@ DZ.register('benchFinish', function(src, token, score)
         local gain = math.floor((20 + DZ.Fx(p).restorer) * score)
         it.c = math.min(100, it.c + gain)
         it.r = true
+        DZ.WhUpdate(p, it)
         p.stats.regen = p.stats.regen + 1
         res.msg = L('bench_done', DZ.ItemLabel(it), before, it.c)
     end
@@ -639,7 +640,9 @@ DZ.register('crush', function(src, netId, rawSnap)
     local snap = snapSanitize(rawSnap, veh)
     if not snap then return { ok = false, msg = L('suspicious') } end
     local plate = trimPlate(GetVehicleNumberPlateText(veh))
-    if not Entity(veh).state.dpTarget and ServerHooks.IsVehicleOwned(plate) then return { ok = false, msg = L('chop_owned') } end
+    local stolen = DZ.IsScriptVehicle and DZ.IsScriptVehicle(veh)
+    if Config.OnlyScriptVehicles and not stolen then return { ok = false, msg = L('not_script_car') } end
+    if not stolen and ServerHooks.IsVehicleOwned(plate) then return { ok = false, msg = L('chop_owned') } end
     local base = Config.Crusher.kgBase[snap.class]
     if not base then return { ok = false, msg = L('chop_class') } end
     local p = DZ.Profile(src)
