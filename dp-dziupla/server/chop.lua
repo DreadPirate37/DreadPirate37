@@ -8,7 +8,15 @@ local Sessions = {}   -- [src] = { kind, token, ... }
 local Carry = {}      -- [src] = przedmiot niesiony na regał
 local jobSeq = 0
 local bestItem        -- (niżej) najlepsza część z magazynu do montażu
-local Stripped = {}   -- [netId] = { [partId] = true } – części już zdjęte na ulicy
+local PendingShell = {}  -- ['shop:bay'] = { net, at } – kupione karoserie czekające na start montażu
+
+-- części już zdjęte z tego auta (w stanie encji – znika razem z autem, net id może wrócić)
+local function strippedOf(veh) return Entity(veh).state.dpStripped or {} end
+local function markStripped(veh, id)
+    local t = strippedOf(veh)
+    t[id] = true
+    Entity(veh).state:set('dpStripped', t, false)
+end
 
 local S = Config.Security
 
@@ -85,7 +93,13 @@ local function endJob(job, deleteVeh, keepFrozen)
     Jobs[job.id] = nil
     ByNet[job.net] = nil
     for src, s in pairs(Sessions) do
-        if s.jobId == job.id then Sessions[src] = nil end
+        if s.jobId == job.id then
+            if s.item then
+                local p = DZ.Profile(src)
+                if p then DZ.SetRes(p, s.item, false) end
+            end
+            Sessions[src] = nil
+        end
     end
     if DoesEntityExist(job.veh) then
         Entity(job.veh).state:set('dpChop', nil, true)
@@ -139,6 +153,8 @@ local function bayFree(shopKey, bayIdx)
     for _, j in pairs(Jobs) do
         if j.shop == shopKey and j.bay == bayIdx then return false end
     end
+    local ps = PendingShell[shopKey .. ':' .. bayIdx]
+    if ps and os.time() - ps.at < 60 then return false end
     return true
 end
 
@@ -197,7 +213,7 @@ local function startJob(src, netId, rawSnap, mode)
     }
     for _, id in ipairs(Logic.BuildParts(mode, snap)) do
         local def = Parts.ById[id]
-        if Stripped[netId] and Stripped[netId][id] then goto skip end
+        if strippedOf(veh)[id] then goto skip end
         local base = Logic.BaseCond(def, snap) * 100 + math.random(-6, 6) + (fx.eye and 4 or 0)
         job.parts[id] = {
             s = 'on',
@@ -275,7 +291,7 @@ DZ.register('streetStrip', function(src, netId, rawSnap)
         parts = {}, flags = {}, lift = 0, base = vc, heading = GetEntityHeading(veh), stampQ = {},
     }
     for _, id in ipairs(Logic.BuildParts('street', snap)) do
-        if not (Stripped[netId] and Stripped[netId][id]) then
+        if not strippedOf(veh)[id] then
             local def = Parts.ById[id]
             local base = Logic.BaseCond(def, snap) * 100 + math.random(-6, 6) + (fx.eye and 4 or 0)
             job.parts[id] = { s = 'on', c = math.floor(math.max(5, math.min(100, base))), m = classMult * Logic.ModMult(def, snap), done = {} }
@@ -441,7 +457,7 @@ DZ.register('partFinish', function(src, token, report)
     local job = Jobs[s.jobId]
     local def = Parts.ById[s.partId]
     if not job or not def then
-        Sessions[src] = nil
+        releasePart(src)
         return { ok = false, msg = L('session_invalid') }
     end
     local pt = job.parts[s.partId]
@@ -535,7 +551,7 @@ DZ.register('partFinish', function(src, token, report)
         if def.mod and job.snap.mods then
             local mv = job.snap.mods[def.mod.key]
             if mv == true or (type(mv) == 'number' and mv >= 0) then
-                item.mk, item.mv, item.mdl = def.mod.key, mv, job.snap.name
+                item.mk, item.mv, item.mdl, item.mdh = def.mod.key, mv, job.snap.name, GetEntityModel(job.veh)
                 if def.mod.key == 'wheels' then item.wt = job.snap.mods.wheelType end
             end
         end
@@ -544,9 +560,8 @@ DZ.register('partFinish', function(src, token, report)
         res.value = value
         res.msg = L('part_removed', def.label, cond, value)
         p.stats.parts = p.stats.parts + 1
+        markStripped(job.veh, s.partId)   -- po przerwaniu rozbiórki ta część nie wróci
         if job.mode == 'street' then
-            Stripped[job.net] = Stripped[job.net] or {}
-            Stripped[job.net][s.partId] = true
             local where = DZ.GiveStreetPart(src, p, item)
             res.msg = where and L('strip_part', def.label, cond, where) or L('warehouse_full')
             local left = false
@@ -574,6 +589,7 @@ end)
 DZ.register('carryStore', function(src)
     local it = Carry[src]
     if not it then return { ok = false } end
+    if DZ.RaidBlocked(src) then return { ok = false } end
     local ok = false
     for _, shop in ipairs(Config.Shops) do
         if DZ.Near(src, shop.shelf, 3.5) then ok = true end
@@ -606,6 +622,7 @@ end)
 --  Przebitka: lakier + papiery (koniec pracy na stanowisku)
 -- --------------------------------------------------------------------------
 DZ.register('revinPaint', function(src, jobId, color, papers)
+    if DZ.RaidBlocked(src) then return { ok = false } end
     local job = Jobs[tonumber(jobId) or -1]
     if not job or (job.mode ~= 'revin' and job.mode ~= 'build') or not job.revinReady then return { ok = false, msg = L('error') } end
     if not nearEntity(src, job.veh, S.maxDistance) then return { ok = false, msg = L('too_far') } end
@@ -653,6 +670,7 @@ DZ.register('benchList', function(src, mode)
 end)
 
 DZ.register('benchBegin', function(src, uid, mode)
+    if DZ.RaidBlocked(src) then return { ok = false } end
     if Sessions[src] then return { ok = false, msg = L('busy') } end
     local p = DZ.Profile(src)
     local it = DZ.WhFind(p, tonumber(uid))
@@ -839,7 +857,18 @@ DZ.register('buildBuy', function(src, idx)
     end
     SetVehicleDoorsLocked(veh, 2)
     Entity(veh).state:set('dpShell', { owner = p.id, bay = bay, shop = shop.key }, true)
-    return { ok = true, net = NetworkGetNetworkIdFromEntity(veh) }
+    local net = NetworkGetNetworkIdFromEntity(veh)
+    local key = shop.key .. ':' .. bay
+    PendingShell[key] = { net = net, at = os.time() }
+    -- klient nie wystartował montażu – karoseria znika, stanowisko wraca do puli
+    SetTimeout(60000, function()
+        local ps = PendingShell[key]
+        if ps and ps.net == net then
+            PendingShell[key] = nil
+            if not ByNet[net] and DoesEntityExist(veh) then DeleteEntity(veh) end
+        end
+    end)
+    return { ok = true, net = net }
 end)
 
 -- klient robi zdjęcie kupionej karoserii (kości, drzwi) i zakłada stanowisko montażu
@@ -860,11 +889,12 @@ DZ.register('buildStart', function(src, netId, rawSnap)
     local classMult = Logic.ClassMult(snap)
     for _, id in ipairs(Logic.BuildParts('chop', snap)) do job.parts[id] = { s = 'on', c = 0, m = classMult, done = {} } end
     toBuild(job)
+    PendingShell[sh.shop .. ':' .. sh.bay] = nil
     Jobs[job.id] = job
     ByNet[netId] = job.id
     FreezeEntityPosition(veh, true)
     Entity(veh).state:set('dpShell', nil, true)
-    Entity(veh).state:set('dpStolen', true, true)   -- traktowane jak auto z listy (dealer, zgniatarka)
+    Entity(veh).state:set('dpBuild', true, true)    -- składak: nie da się go rozebrać ani wyeksportować jak auta z listy
     publish(job)
     return { ok = true, msg = L('build_bought') }
 end)
@@ -905,9 +935,10 @@ DZ.BuildInstalled = buildInstalled
 -- --------------------------------------------------------------------------
 local TU = Config.Tuning
 
-local function tuneFits(it, model)
+-- blacharka tylko do tego samego modelu – porównujemy hash modelu widziany przez serwer
+local function tuneFits(it, veh)
     if not it.mk then return false end
-    if TU.sameModel[it.mk] and (it.mdl or ''):lower() ~= (model or ''):lower() then return false end
+    if TU.sameModel[it.mk] and not DZ.SameModel(it.mdh, GetEntityModel(veh)) then return false end
     return true
 end
 
@@ -921,12 +952,13 @@ local function tuneVehicle(src, netId)
     end
 end
 
-DZ.register('tuneList', function(src, netId, model)
-    if not TU.enabled or not tuneVehicle(src, netId) then return { ok = false, msg = L('chop_not_vehicle') } end
+DZ.register('tuneList', function(src, netId)
+    local veh = TU.enabled and tuneVehicle(src, netId)
+    if not veh then return { ok = false, msg = L('chop_not_vehicle') } end
     local p = DZ.Profile(src)
     local out = {}
     for _, it in ipairs(DZ.WhList(p)) do
-        if not DZ.IsRes(p, it.u) and tuneFits(it, model) then
+        if not DZ.IsRes(p, it.u) and tuneFits(it, veh) then
             local v = DZ.ItemView(p, it)
             v.mk, v.mv = it.mk, it.mv
             out[#out + 1] = v
@@ -936,11 +968,12 @@ DZ.register('tuneList', function(src, netId, model)
     return { ok = true, items = out }
 end)
 
-DZ.register('tuneApply', function(src, netId, uid, model)
-    if not TU.enabled or not tuneVehicle(src, netId) then return { ok = false, msg = L('chop_not_vehicle') } end
+DZ.register('tuneApply', function(src, netId, uid)
+    local veh = TU.enabled and tuneVehicle(src, netId)
+    if not veh then return { ok = false, msg = L('chop_not_vehicle') } end
     local p = DZ.Profile(src)
     local it = DZ.WhFind(p, tonumber(uid))
-    if not it or DZ.IsRes(p, it.u) or not tuneFits(it, model) then return { ok = false, msg = L('tune_none') } end
+    if not it or DZ.IsRes(p, it.u) or not tuneFits(it, veh) then return { ok = false, msg = L('tune_none') } end
     local taken = DZ.WhTake(p, it.u)
     if not taken then return { ok = false, msg = L('error') } end
     DZ.Save(p)
@@ -966,6 +999,13 @@ end
 -- --------------------------------------------------------------------------
 --  Sprzątanie
 -- --------------------------------------------------------------------------
+local function jobBusy(job)
+    for _, s in pairs(Sessions) do
+        if s.jobId == job.id then return true end
+    end
+    return false
+end
+
 CreateThread(function()
     while true do
         Wait(15000)
@@ -974,7 +1014,7 @@ CreateThread(function()
             if not DoesEntityExist(job.veh) then
                 endJob(job, false)
             elseif now - job.touched > Config.Bay.maxJobAge
-                or (job.mode == 'street' and now - job.touched > Config.StreetStrip.idleEnd and not next(Sessions)) then
+                or (job.mode == 'street' and now - job.touched > Config.StreetStrip.idleEnd and not jobBusy(job)) then
                 endJob(job, false, job.mode == 'street')
             end
         end

@@ -31,9 +31,12 @@ function DZ.WhCap(p)
     return Config.Warehouse.baseSlots + (p.upg.shelf or 0) * Config.Warehouse.perShelf
 end
 
-local function nextUid(p)
-    p.seq = (p.seq or 0) + 1
-    return p.seq
+-- identyfikatory części są globalne (części wędrują między graczami, ekipami i giełdą)
+local uidSeq = GetResourceKvpInt('dz:uid')
+local function nextUid()
+    uidSeq = uidSeq + 1
+    SetResourceKvpInt('dz:uid', uidSeq)
+    return uidSeq
 end
 
 local function meta(it)
@@ -108,7 +111,7 @@ if OX then
 
     function DZ.WhAdd(p, item)
         local id = stash(p)
-        item.u = nextUid(p)
+        item.u = nextUid()
         local ok = ox:AddItem(id, I.partItem, 1, meta(item))
         if not ok then
             DZ.dbg('ox: nie zmieściło się ' .. tostring(item.t))
@@ -162,7 +165,8 @@ if OX then
         end
         if not ok then return { ok = false, msg = L('too_far') } end
         local p = DZ.Profile(src)
-        ox:forceOpenInventory(src, 'stash', stash(p))
+        if DZ.RaidBlocked and DZ.RaidBlocked(src) then return { ok = false } end
+        ox:forceOpenInventory(src, 'stash', stash(DZ.Store(p)))
         return { ok = true }
     end)
 
@@ -178,7 +182,7 @@ else
 
     function DZ.WhAdd(p, item)
         if DZ.WhFree(p) <= 0 then return nil end
-        item.u = nextUid(p)
+        item.u = nextUid()
         p.wh[#p.wh + 1] = item
         return item
     end
@@ -218,7 +222,7 @@ end
 -- część zdjęta na ulicy: ox -> do kieszeni (albo stasha, gdy za ciężka), inaczej do magazynu
 function DZ.GiveStreetPart(src, p, item)
     if OX then
-        item.u = nextUid(p)
+        item.u = nextUid()
         if ox:CanCarryItem(src, I.partItem, 1, meta(item)) and ox:AddItem(src, I.partItem, 1, meta(item)) then return 'ekwipunku' end
         item.u = nil
     end

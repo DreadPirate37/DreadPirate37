@@ -35,13 +35,15 @@ end
 function DZ.SaveCrew(c) DZ.Save(c) end
 
 function DZ.CrewOf(p)
-    return p and p.crew and Crews[p.crew] or nil
+    local c = p and p.crew and Crews[p.crew] or nil
+    if c and not c.members[p.id] then return nil end   -- wyrzucony, gdy był offline
+    return c
 end
 
 -- magazyn, na którym pracuje gracz (ekipy albo własny)
 function DZ.Store(p)
     if not CR.enabled or not CR.sharedWarehouse or not p or not p.crew then return p end
-    return Crews[p.crew] or p
+    return DZ.CrewOf(p) or p
 end
 
 function DZ.CrewLevel(c)
@@ -103,8 +105,11 @@ DZ.register('crewCreate', function(src, name)
     if not CR.enabled then return { ok = false } end
     local p = DZ.Profile(src)
     if p.crew and Crews[p.crew] then return { ok = false, msg = 'Już jesteś w ekipie.' } end
-    name = type(name) == 'string' and name:gsub('[^%w%s%-_ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]', ''):sub(1, 24) or ''
-    if #name < 3 then return { ok = false, msg = 'Nazwa ekipy: 3–24 znaki.' } end
+    name = type(name) == 'string' and name:gsub('[^%w%s%-_ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]', '') or ''
+    if not utf8.len(name) then return { ok = false, msg = 'Niepoprawna nazwa.' } end
+    local cutAt = utf8.offset(name, 25)
+    if cutAt then name = name:sub(1, cutAt - 1) end
+    if utf8.len(name) < 3 then return { ok = false, msg = 'Nazwa ekipy: 3–24 znaki.' } end
     for _, c in pairs(Crews) do
         if c.name:lower() == name:lower() then return { ok = false, msg = 'Taka ekipa już istnieje.' } end
     end
@@ -144,6 +149,9 @@ DZ.register('crewAccept', function(src)
     local c = inv and Crews[inv.cid]
     if not c or os.time() - inv.at > 600 then return { ok = false, msg = 'Zaproszenie wygasło.' } end
     if p.crew and Crews[p.crew] then return { ok = false, msg = 'Już jesteś w ekipie.' } end
+    local n = 0
+    for _ in pairs(c.members) do n = n + 1 end
+    if n >= CR.maxMembers then return { ok = false, msg = 'Ekipa jest pełna.' } end
     Invites[p.id] = nil
     c.members[p.id] = { name = GetPlayerName(src), role = 'member' }
     p.crew = c.cid
@@ -154,19 +162,8 @@ end)
 
 local function removeMember(c, id)
     c.members[id] = nil
-    local mp
-    for _, pid in ipairs(GetPlayers()) do
-        local pp = DZ.Profile(tonumber(pid))
-        if pp and pp.id == id then mp = pp end
-    end
-    if not mp then
-        local raw = GetResourceKvpString('dz:' .. id)
-        if raw then
-            local d = json.decode(raw)
-            d.crew = nil
-            SetResourceKvp('dz:' .. id, json.encode(d))
-        end
-    else
+    local mp = DZ.ProfileById(id)
+    if mp then
         mp.crew = nil
         DZ.Save(mp)
     end

@@ -34,6 +34,16 @@ function DZ.AddHeat(key, n, src)
     save()
 end
 
+-- akcje „przy regale / stole” podczas obławy są zablokowane
+function DZ.RaidBlocked(src)
+    local s = DZ.ShopAtRaw(src)
+    if s and DZ.RaidActive(s.key) then
+        Bridge.Notify(src, 'Dziupla zamknięta – trwa obława policji.', 'bad')
+        return true
+    end
+    return false
+end
+
 function DZ.RaidActive(key)
     local r = Raids[key]
     return r ~= nil and r.phase == 'raid'
@@ -112,11 +122,13 @@ DZ.register('raidSearch', function(src, key)
     if not DZ.Near(src, shop.shelf, R.searchRadius) then return { ok = false, msg = L('too_far') } end
     if r.searched[src] then return { ok = false, msg = 'Już przeszukałeś tę dziuplę.' } end
     r.searched[src] = true
-    local now, seized = os.time(), 0
+    local now, seized, seen = os.time(), 0, {}
     for id, at in pairs(Recent[key] or {}) do
-        if now - at < R.hotTime then
-            local p = DZ.ProfileById(id)
-            if p then
+        local p = now - at < R.hotTime and DZ.ProfileById(id) or nil
+        -- członkowie jednej ekipy mają wspólny magazyn – przeszukujemy go raz
+        local store = p and (DZ.Store and DZ.Store(p) or p)
+        if store and not seen[store.id] then
+            seen[store.id] = true
                 local n = 0
                 for _, it in ipairs(DZ.WhList(p)) do
                     if n >= R.maxSeize then break end
@@ -124,9 +136,8 @@ DZ.register('raidSearch', function(src, key)
                         if DZ.WhTake(p, it.u) then n = n + 1 end
                     end
                 end
-                if n > 0 then DZ.Save(p) end
-                seized = seized + n
-            end
+            if n > 0 then DZ.Save(p) end
+            seized = seized + n
         end
     end
     Recent[key] = {}

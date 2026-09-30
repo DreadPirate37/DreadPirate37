@@ -150,7 +150,8 @@ end
 function DZ.Target(net) return Targets[net] end
 
 function DZ.IsScriptVehicle(veh)
-    return Entity(veh).state.dpStolen == true
+    local st = Entity(veh).state
+    return st.dpStolen == true and not st.dpBuild
 end
 
 local function clearContract(src, deleteVeh)
@@ -404,7 +405,11 @@ if ST and ST.enabled then
                     n = n + 1
                     if rec.spotIdx then used[rec.spotIdx] = true end
                     -- nikt go nie ruszył przez długi czas – przestawiamy w inne miejsce
-                    if rec.locked and now - rec.born > ST.lifetime and not playerNear(rec.spot, ST.clearRadius) then
+                    local veh = vehFromNet(net)
+                    local vpos = veh and GetEntityCoords(veh)
+                    local idle = now - rec.born > ST.lifetime and not playerNear(rec.spot, ST.clearRadius)
+                        and (not vpos or not playerNear(vpos, ST.clearRadius))
+                    if idle and (rec.locked or (veh and GetPedInVehicleSeat(veh, -1) == 0 and not DZ.JobByNet(net))) then
                         forgetTarget(net, true)
                         n = n - 1
                     end
@@ -553,13 +558,21 @@ DZ.register('orderDeliver', function(src)
     if not o then return { ok = false } end
     if not DZ.Near(src, o.drop, 6.0) then return { ok = false, msg = L('too_far') } end
     local p = DZ.Profile(src)
+    -- wszystkie zarezerwowane części muszą wciąż być w magazynie
     for _, u in ipairs(o.uids) do
-        local it = DZ.WhFind(p, u)
-        if it then
-            local t = Parts.Types[it.t]
-            if t then DZ.MarketSold(t.cat, Logic.PartValue(it.t, it.c, it.m) * 0.5) end
-            DZ.WhTake(p, u)
+        if not DZ.WhFind(p, u) then
+            releaseOrder(src, p)
+            return { ok = false, msg = L('order_missing') }
         end
+    end
+    for _, u in ipairs(o.uids) do
+        local it = DZ.WhTake(p, u)
+        if not it then
+            releaseOrder(src, p)
+            return { ok = false, msg = L('order_missing') }
+        end
+        local t = Parts.Types[it.t]
+        if t then DZ.MarketSold(t.cat, Logic.PartValue(it.t, it.c, it.m) * 0.5) end
     end
     OActive[src] = nil
     DZ.Earn(src, p, o.pay, 'zamowienie')
@@ -569,6 +582,76 @@ DZ.register('orderDeliver', function(src)
     if math.random() < O.ambushChance then dispatch(src, 'drop', vector3(o.drop.x, o.drop.y, o.drop.z), {}) end
     TriggerClientEvent('dp-dziupla:client:order', src, nil)
     return { ok = true, msg = L('order_done', o.pay) }
+end)
+
+-- ==========================================================================
+--  LAWETA
+-- ==========================================================================
+local TW = Config.Tow
+local Tows = {}   -- [src] = { net, deposit }
+
+DZ.register('towRent', function(src)
+    if not TW.enabled or not DZ.HasAccess(src) then return { ok = false, msg = L('no_access') } end
+    if Tows[src] and vehFromNet(Tows[src].net) then return { ok = false, msg = L('tow_has') } end
+    local shop = DZ.ShopAt(src)
+    if not shop or not shop.tow or not DZ.Near(src, shop.tow, 4.0) then return { ok = false, msg = L('too_far') } end
+    if not Bridge.RemoveMoney(src, Config.ShopAccount, TW.deposit, 'dp-dziupla-laweta') then return { ok = false, msg = L('no_money', TW.deposit) } end
+    local t = shop.tow
+    local veh = CreateVehicleServerSetter(joaat(TW.model), 'automobile', t.x, t.y, t.z + 0.5, t.w)
+    local timeout = GetGameTimer() + 5000
+    while not DoesEntityExist(veh) and GetGameTimer() < timeout do Wait(10) end
+    if not DoesEntityExist(veh) then
+        Bridge.AddMoney(src, Config.ShopAccount, TW.deposit, 'dp-dziupla-laweta')
+        return { ok = false, msg = L('error') }
+    end
+    local plate = ('LAWETA%02d'):format(math.random(0, 99))
+    SetVehicleNumberPlateText(veh, plate)
+    Entity(veh).state:set('dpTow', { owner = src }, true)
+    Tows[src] = { net = NetworkGetNetworkIdFromEntity(veh), deposit = TW.deposit }
+    return { ok = true, net = Tows[src].net, plate = plate, msg = L('tow_rented') }
+end)
+
+DZ.register('towReturn', function(src)
+    local t = Tows[src]
+    local veh = t and vehFromNet(t.net)
+    if not veh then Tows[src] = nil return { ok = false } end
+    local near = false
+    for _, shop in ipairs(Config.Shops) do
+        if shop.tow and #(GetEntityCoords(veh).xy - shop.tow.xy) < 15.0 and DZ.Near(src, shop.tow, 15.0) then near = true end
+    end
+    if not near then return { ok = false, msg = L('too_far') } end
+    local refund = math.floor(t.deposit * math.max(0, math.min(1000, GetVehicleBodyHealth(veh))) / 1000)
+    DeleteEntity(veh)
+    Tows[src] = nil
+    Bridge.AddMoney(src, Config.ShopAccount, refund, 'dp-dziupla-laweta')
+    return { ok = true, msg = L('tow_returned', refund) }
+end)
+
+DZ.register('towLoad', function(src, towNet, carNet)
+    local t = Tows[src]
+    local tow = t and t.net == towNet and vehFromNet(towNet) or nil
+    local car = vehFromNet(carNet)
+    if not tow or not car or not DZ.IsScriptVehicle(car) or Entity(car).state.dpBuild or DZ.JobByNet(carNet) then return { ok = false, msg = L('tow_bad') } end
+    if #(GetEntityCoords(car) - GetEntityCoords(tow)) > TW.maxDist + 4.0 or not nearEnt(src, tow, 8.0) then return { ok = false, msg = L('too_far') } end
+    for seat = -1, 6 do
+        if GetPedInVehicleSeat(car, seat) ~= 0 then return { ok = false, msg = L('chop_occupied') } end
+    end
+    local rec = Targets[carNet]
+    Entity(car).state:set('dpTowed', towNet, true)
+    return { ok = true, alarm = DZ.TargetAlarm(src, carNet), plate = rec and rec.plate, msg = L('tow_loaded') }
+end)
+
+DZ.register('towUnload', function(src, towNet, carNet)
+    local t = Tows[src]
+    local car = vehFromNet(carNet)
+    if not t or t.net ~= towNet or not car then return { ok = false } end
+    Entity(car).state:set('dpTowed', nil, true)
+    return { ok = true }
+end)
+
+DZ.register('towState', function(src)
+    local t = Tows[src]
+    return { net = t and vehFromNet(t.net) and t.net or nil }
 end)
 
 -- ==========================================================================
