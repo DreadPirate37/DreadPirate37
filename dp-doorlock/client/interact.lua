@@ -154,8 +154,10 @@ local game = nil     -- { kind, id, token, stop }
 local function startGame(kind, id)
     local res = DL.Callback(kind .. '_start', id)
     if not res or not res.ok then return DL.Result(res) end
-    DL.Face(Doors.Target(id))
-    game = { kind = kind, id = id, token = res.token, stop = DL.Anim(kind) }
+    local target = Doors.Target(id)
+    DL.Face(target)
+    local cam = (kind == 'lockpick' and Config.Lockpick.camera and target) and DL.CloseCam(target) or nil
+    game = { kind = kind, id = id, token = res.token, stop = DL.Anim(kind), cam = cam }
     res.token = nil
     openPanel({ action = kind, data = res })
 end
@@ -170,8 +172,9 @@ RegisterNUICallback('gameDone', function(data, cb)
     game = nil
     if not g then return end
     g.stop()
+    if g.cam then g.cam() end
     CreateThread(function()
-        local res = DL.Callback(g.kind .. '_finish', g.id, g.token, data.success == true)
+        local res = DL.Callback(g.kind .. '_finish', g.id, g.token, data.success == true, data.broke == true)
         DL.Result(res)
         if res and res.ok and not res.failed then Doors.Fx(g.id, 'ok') end
     end)
@@ -280,4 +283,5 @@ RegisterNetEvent('dp-doorlock:client:alarm', function(payload) Hooks.Alarm(paylo
 AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() then return end
     if game and game.stop then game.stop() end
+    if game and game.cam then game.cam() end
 end)

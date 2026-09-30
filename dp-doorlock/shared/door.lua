@@ -6,6 +6,7 @@ Door = {}
 Door.Types = { single = true, double = true, sliding = true, garage = true }
 Door.Security = { standard = true, keypad = true, card = true, bio = true }
 Door.Electronic = { keypad = true, card = true, bio = true }
+Door.LockModels = { euro = true, rim = true, padlock = true }
 
 local function num(v, def, lo, hi)
     v = tonumber(v) or def
@@ -93,6 +94,7 @@ function Door.Normalize(d)
     out.distance = num(d.distance, gate and Config.Defaults.gateDistance or Config.Defaults.distance, 0.5, 25.0)
     out.autoLock = math.floor(num(d.autoLock, Config.Defaults.autoLock, 0, 3600))
     out.lockpick = math.floor(num(d.lockpick, 0, 0, 5))
+    out.lockModel = Door.LockModels[d.lockModel] and d.lockModel or 'euro'
     out.hack = math.floor(num(d.hack, 0, 0, 5))
     out.breach = d.breach == true
     out.alarm = d.alarm == true

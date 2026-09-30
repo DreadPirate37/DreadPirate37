@@ -15,7 +15,8 @@ Zasób był pisany z myślą o **wydajności** (szczegóły w sekcji [Wydajnoś�
 |---|---|
 | ![Znaczniki](docs/main.jpg) | ![Menu radialne](docs/radial.jpg) |
 | ![Klawiatura PIN](docs/keypad.jpg) | ![Czytnik kart](docs/card.jpg) |
-| ![Biometria](docs/bio.jpg) | ![Wytrych](docs/lockpick.jpg) |
+| ![Wytrych – wkładka](docs/lockpick.jpg) | ![Wytrych – kłódka](docs/lockpick-padlock.jpg) |
+| ![Wytrych – rozeta](docs/lockpick-rim.jpg) | ![Biometria](docs/bio.jpg) |
 | ![Hakowanie](docs/hack.jpg) | ![Klucze cyfrowe](docs/keys.jpg) |
 | ![Panel admina](docs/admin.jpg) | ![Dostęp](docs/admin-access.jpg) |
 
@@ -50,7 +51,7 @@ Menu radialne w stylu koła broni z GTA: wybór kątem myszy, klawiszami 1–9 a
 | Otwórz / zamknij | z dostępem | ścieżka zależna od zabezpieczenia |
 | Zapukaj | każdy | stukanie słyszą gracze w promieniu 14 m |
 | Zadzwoń | każdy (jeśli drzwi mają dzwonek) | ding-dong + powiadomienie dla osób z dostępem w pobliżu |
-| Wytrych | przestępcy | minigra z zapadkami, trudność 1–5 |
+| Wytrych | przestępcy | zbliżenie na zamek, szukanie punktu i napinacz; trudność 1–5 |
 | Włam do czytnika | przestępcy | minigra synchronizacji sygnału (zamki elektroniczne) |
 | Ładunek termitowy | przestępcy | 12 s palenia z efektem cząsteczkowym → zamek przepalony + alarm |
 | Wyważ taranem | służby | kopnięcie/taran → drzwi wyłamane |
@@ -61,7 +62,13 @@ Menu radialne w stylu koła broni z GTA: wybór kątem myszy, klawiszami 1–9 a
 | Edytuj drzwi | admin | otwiera panel na tych drzwiach |
 
 ### Minigry
-- **Wytrych.** Przekrój prawdziwego zamka bębenkowego ze sprężynami, bolcami i linią ścinania. Wybierasz zapadkę myszą, unosisz ją LPM i puszczasz, gdy szczelina trafi w złotą linię. Naraz „wiąże” tylko jedna zapadka: unosi się wolniej i drga, a odkrycie kolejności jest częścią zabawy. Przestawienie nadwyręża wytrych. Zaawansowany wytrych obniża trudność i rzadziej pęka.
+- **Wytrych (tryb `front`, domyślny).** Zbliżenie na zamek jak w symulatorach włamywacza, a kamera w grze najeżdża na klamkę. Trzy modele zamków rysowane od zera:
+  - **wkładka europejska w szyldzie** ze szczotkowanej stali, z klamką, na stalowych drzwiach;
+  - **wkładka w chromowanej rozecie** na drewnianych drzwiach ze słojami;
+  - **kłódka** z laminowanej stali na kracie celi. Po otwarciu kabłąk wyskakuje.
+
+  Myszą obracasz wytrych wokół kanału klucza, a LPM, `D` lub spacją przekręcasz bębenek napinaczem. Im bliżej właściwego punktu, tym dalej bębenek się obraca. Poza nim zamek się blokuje, drga i skrzypi, wytrych się wygina i w końcu pęka (odłamek spada). Na wyższych poziomach jest 2–3 zapadek, każda z nowym punktem. Pęknięcie w minigrze zawsze zabiera wytrych z ekwipunku.
+- **Wytrych (tryb `pins`).** Przekrój wkładki: podnosisz zapadki jedna po drugiej do linii ścinania. Naraz „wiąże” tylko jedna. Tryb `mixed` używa go przy trudności 5.
 - **Hakowanie.** Oscyloskop z sygnałem czytnika. Trzema pokrętłami (częstotliwość, amplituda, faza) dopasowujesz swoją falę. Po zatrzaśnięciu 1–3 etapów zamek puszcza. Na wyższych poziomach sygnał dryfuje i szumi. Porażka blokuje czytnik dla gracza i może włączyć alarm.
 
 ### Automatyka

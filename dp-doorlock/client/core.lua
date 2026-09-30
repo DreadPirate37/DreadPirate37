@@ -93,7 +93,53 @@ function DL.Anim(name)
     if not DL.LoadDict(a.dict) then return function() end end
     TaskPlayAnim(ped, a.dict, a.clip, 4.0, -4.0, a.time or -1, a.flag or 0, 0.0, false, false, false)
     RemoveAnimDict(a.dict)
-    return function() StopAnimTask(ped, a.dict, a.clip, 2.0) end
+    local prop = a.prop and DL.Prop(ped, a.prop) or nil
+    return function()
+        StopAnimTask(ped, a.dict, a.clip, 2.0)
+        if prop and DoesEntityExist(prop) then DeleteEntity(prop) end
+    end
+end
+
+--- Rekwizyt w dłoni (klucz, narzędzie). p = { model, bone, pos, rot, time? }
+function DL.Prop(ped, p)
+    local hash = joaat(p.model)
+    if not IsModelInCdimage(hash) then return nil end
+    RequestModel(hash)
+    local timeout = GetGameTimer() + 2000
+    while not HasModelLoaded(hash) do
+        if GetGameTimer() > timeout then return nil end
+        Wait(0)
+    end
+    local c = GetEntityCoords(ped)
+    local obj = CreateObject(hash, c.x, c.y, c.z, false, false, false)
+    SetModelAsNoLongerNeeded(hash)
+    SetEntityCollision(obj, false, false)
+    AttachEntityToEntity(obj, ped, GetPedBoneIndex(ped, p.bone), p.pos.x, p.pos.y, p.pos.z, p.rot.x, p.rot.y, p.rot.z, true, true, false, true, 1, true)
+    if p.time then SetTimeout(p.time, function() if DoesEntityExist(obj) then DeleteEntity(obj) end end) end
+    return obj
+end
+
+--- Kamera zbliżeniowa na punkt (zamek). Zwraca funkcję wyłączającą.
+function DL.CloseCam(target)
+    local ped = PlayerPedId()
+    local p = GetEntityCoords(ped)
+    local dir = vector3(p.x - target.x, p.y - target.y, 0.0)
+    local len = #dir
+    if len < 0.01 then return function() end end
+    dir = dir / len
+    local d = Config.Lockpick.cameraDistance
+    -- lekko z boku i z góry – widać dłonie i zamek, jak w symulatorach włamywacza
+    local side = vector3(-dir.y, dir.x, 0.0) * 0.12
+    local pos = target + dir * d + side + vector3(0.0, 0.0, 0.08)
+    local cam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', pos.x, pos.y, pos.z, 0.0, 0.0, 0.0, Config.Lockpick.cameraFov, false, 2)
+    PointCamAtCoord(cam, target.x, target.y, target.z)
+    SetCamActive(cam, true)
+    RenderScriptCams(true, true, 700, true, false)
+    return function()
+        RenderScriptCams(false, true, 600, true, false)
+        SetCamActive(cam, false)
+        DestroyCam(cam, false)
+    end
 end
 
 --- Obraca gracza twarzą do punktu (krótko, bez blokowania)

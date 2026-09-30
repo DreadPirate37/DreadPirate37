@@ -154,3 +154,9 @@ DL.layer = {
     if (!silent) DL.post('close');
   },
 };
+
+/** Dopasowanie skali okna minigry do rozdzielczości */
+DL.fitGame = box => {
+  const s = Math.min(1, (window.innerWidth * 0.94) / 1000, (window.innerHeight * 0.9) / 540);
+  box.style.setProperty('--gs', s.toFixed(3));
+};

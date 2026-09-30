@@ -158,14 +158,17 @@ DL.Register('lockpick_start', function(src, id)
     local advanced = item == Config.Items.advanced
     local diff = math.max(1, d.lockpick - (advanced and 1 or 0))
     local s = startSession(src, 'lockpick', id2, { item = item, advanced = advanced })
+    local style = Config.Lockpick.style
+    if style == 'mixed' then style = diff >= 5 and 'pins' or 'front' end
     return {
         ok = true, token = s.token, difficulty = diff, advanced = advanced,
+        style = style, model = d.lockModel, stages = Config.Lockpick.stagesByDifficulty[diff],
         pins = Config.Lockpick.pinsByDifficulty[diff], time = Config.Lockpick.timeLimit,
         seed = math.random(1, 2 ^ 30),
     }
 end)
 
-DL.Register('lockpick_finish', function(src, id, tok, success)
+DL.Register('lockpick_finish', function(src, id, tok, success, snapped)
     local d, _, id2 = door(id)
     if not d then return { ok = false } end
     local s, err = takeSession(src, 'lockpick', id2, tok, success and Config.Lockpick.minSeconds * 1000 or 0)
@@ -176,7 +179,8 @@ DL.Register('lockpick_finish', function(src, id, tok, success)
         return { ok = true, msg = L('picked') }
     end
     S.Log(id2, src, 'lockpick', 'fail')
-    local broke = math.random() < (s.advanced and Config.Lockpick.advancedBreakChance or Config.Lockpick.breakChance)
+    -- pęknięcie widoczne w minigrze zawsze zabiera wytrych (klient może zaszkodzić tylko sobie)
+    local broke = snapped == true or math.random() < (s.advanced and Config.Lockpick.advancedBreakChance or Config.Lockpick.breakChance)
     if broke then Bridge.RemoveItem(src, s.item, 1) end
     if d.alarm and math.random() < Config.Lockpick.alarmChance then DL.Alarm(id2, src, 'lockpick') end
     return { ok = true, failed = true, broke = broke, msg = broke and L('pick_broke') or L('pick_failed') }

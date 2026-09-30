@@ -40,10 +40,10 @@
 
   // klawiatura: kolejno minigry → panele → ESC
   window.addEventListener('keydown', e => {
-    if (DL.Hack.key(e, true) || DL.Lockpick.key(e) || DL.Keypad.key(e) || DL.Radial.key(e)) { e.preventDefault(); return; }
+    if (DL.Hack.key(e, true) || DL.Lockpick.key(e, true) || DL.Keypad.key(e) || DL.Radial.key(e)) { e.preventDefault(); return; }
     if (e.key === 'Escape' && DL.layer.cur) DL.layer.close();
   });
-  window.addEventListener('keyup', e => DL.Hack.key(e, false));
+  window.addEventListener('keyup', e => { DL.Hack.key(e, false); DL.Lockpick.key(e, false); });
   window.addEventListener('contextmenu', e => e.preventDefault());
 
   if (DL.isFiveM) return;
@@ -151,7 +151,7 @@
 
   const keyHolders = [{ id: 'char1:ff00aa11', label: 'Anna Zielińska' }, { id: 'char1:bb22cc33', label: 'Tomasz Wiśniewski' }];
   const openKeypad = () => DL.Keypad.open({ id: 4, name: 'Brama garażu', group: 'MRPD', mode: 'use' });
-  const openLockpick = () => DL.Lockpick.open({ seed: Math.floor(Math.random() * 1e9), pins: 5, difficulty: 3, time: 60 });
+  const openLockpick = model => DL.Lockpick.open({ seed: Math.floor(Math.random() * 1e9), pins: 5, difficulty: 3, time: 60, model: typeof model === 'string' ? model : qs.get('model') || 'euro', style: qs.get('style') || 'front' });
   const openKeys = () => DL.Keys.open({ id: 2, name: 'Gabinet kapitana', holders: keyHolders, logs: LOGS });
   const openAdmin = () => DL.Admin.open(adminData());
 
@@ -165,7 +165,10 @@
   btn('card', 'Karta', () => DL.Reader.open({ id: 3, name: 'Zbrojownia', group: 'MRPD', kind: 'card', level: 3 }));
   btn('finger', 'Biometria', () => DL.Reader.open({ id: 2, name: 'Gabinet kapitana', group: 'MRPD', kind: 'bio' }));
   sep();
-  btn('pick', 'Wytrych', openLockpick);
+  btn('pick', 'Wytrych', () => openLockpick('euro'));
+  btn('door', 'Rozeta', () => openLockpick('rim'));
+  btn('lock', 'Kłódka', () => openLockpick('padlock'));
+  btn('layers', 'Zapadki', () => DL.Lockpick.open({ style: 'pins', seed: Math.floor(Math.random() * 1e9), pins: 5, difficulty: 3, time: 60 }));
   btn('chip', 'Hakowanie', () => DL.Hack.open({ seed: Math.floor(Math.random() * 1e9), difficulty: 3, stages: 2, time: 45 }));
   btn('fire', 'Termit', () => { DL.Progress.start({ label: 'Termit się pali…', icon: 'fire', ms: 5000 }); DL.Audio.play('sizzle', 0.6, 5000); setTimeout(() => { DL.Progress.end(true); DL.Chips.state(3, { l: false, b: true, a: true }); DL.toast('Zamek przepalony!', 'warn'); }, 5000); });
   sep();
@@ -183,7 +186,7 @@
   else if (open === 'card') bar.children[4].click();
   else if (open === 'bio') bar.children[5].click();
   else if (open === 'lockpick') openLockpick();
-  else if (open === 'hack') bar.children[8].click();
+  else if (open === 'hack') DL.Hack.open({ seed: 7, difficulty: 3, stages: 2, time: 45 });
   else if (open === 'keys') openKeys();
-  else if (open === 'progress') bar.children[9].click();
+  else if (open === 'progress') { DL.Progress.start({ label: 'Termit się pali…', icon: 'fire', ms: 5000 }); }
 })();

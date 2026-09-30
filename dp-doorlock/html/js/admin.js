@@ -25,7 +25,7 @@ DL.Admin = (() => {
   const stTxt = st => (!st ? 'Zamknięte' : st.d ? 'Blokada' : st.b ? 'Wyłamane' : st.l ? 'Zamknięte' : 'Otwarte');
   const blank = leaves => ({
     name: 'Nowe drzwi', group: '', type: leaves && leaves.length > 1 ? 'double' : 'single', doors: leaves || [], security: 'standard', locked: true,
-    distance: 2, autoLock: 0, lockpick: 0, hack: 0, breach: false, alarm: false, doorbell: false, hideUi: false,
+    distance: 2, autoLock: 0, lockpick: 0, lockModel: 'euro', hack: 0, breach: false, alarm: false, doorbell: false, hideUi: false,
     access: { jobs: {}, gangs: {}, items: [], identifiers: {}, public: false },
   });
 
@@ -340,6 +340,7 @@ DL.Admin = (() => {
       const f2 = field('Hakowanie – trudność', range(d.hack, 0, 5, 1, v => change(x => (x.hack = v)), v => (hk.textContent = lvl(v))), { hint: d.security === 'standard' ? 'Hakowanie działa tylko przy zamkach elektronicznych.' : '0 = czytnika nie da się zhakować.' });
       DL.$('label', f2).append(hk);
       g.append(f1, f2);
+      g.append(field('Model zamka (widok w minigrze wytrycha)', seg([['euro', 'door', 'Wkładka w szyldzie'], ['rim', 'target', 'Rozeta'], ['padlock', 'lock', 'Kłódka']], d.lockModel || 'euro', v => change(x => (x.lockModel = v))), { full: true, hint: 'Szyld na stalowych drzwiach, rozeta na drewnianych, kłódka na kratach i bramach.' }));
       g.append(DL.h('div.full', null, rowSw('fire', 'Można wyważyć', 'Termit (przestępcy) i taran (służby) – drzwi zostają wyłamane do naprawy.', d.breach, v => change(x => (x.breach = v)))));
       g.append(DL.h('div.full', null, rowSw('alarm', 'Alarm', 'Włamanie, termit lub zablokowana klawiatura powiadamiają policję (blip + dispatch).', d.alarm, v => change(x => (x.alarm = v)))));
       g.append(DL.h('div.full', null, rowSw('bell', 'Dzwonek', 'Goście mogą zadzwonić – osoby z dostępem w pobliżu dostaną powiadomienie.', d.doorbell, v => change(x => (x.doorbell = v)))));

@@ -65,6 +65,14 @@ Config.Keycards = {
 --  WYTRYCH (minigra z zapadkami)
 -- ==========================================================================
 Config.Lockpick = {
+    -- 'front' – zbliżenie na zamek: szukanie punktu wytrychem + napinacz (domyślne)
+    -- 'pins'  – przekrój wkładki, podnoszenie zapadek jedna po drugiej
+    -- 'mixed' – front do trudności 4, pins przy 5
+    style = 'front',
+    stagesByDifficulty = { 1, 1, 2, 2, 3 },   -- ile zapadek (etapów) w trybie front
+    camera = true,                 -- kamera najeżdża na zamek podczas minigry
+    cameraDistance = 0.55,         -- odległość kamery od zamka [m]
+    cameraFov = 42.0,
     pinsByDifficulty = { 3, 4, 5, 6, 7 },
     breakChance = 0.35,            -- szansa na złamanie wytrycha przy porażce
     advancedBreakChance = 0.12,
@@ -137,9 +145,10 @@ Config.Social = {
 --  ANIMACJE
 -- ==========================================================================
 Config.Anims = {
-    key      = { dict = 'anim@heists@keycard@', clip = 'exit', time = 900, flag = 48 },
+    key      = { dict = 'anim@heists@keycard@', clip = 'exit', time = 900, flag = 48,
+                 prop = { model = 'prop_cuff_keys_01', bone = 57005, pos = vec3(0.11, 0.03, -0.03), rot = vec3(-90.0, 0.0, 0.0), time = 900 } },
     knock    = { dict = 'timetable@jimmy@doorknock@', clip = 'knockdoor_idle', time = 2200, flag = 48 },
-    lockpick = { dict = 'veh@break_in@0h@p_m_one@', clip = 'low_force_entry_ds', flag = 1 },
+    lockpick = { dict = 'mp_common_heist', clip = 'pick_door', flag = 1 },
     hack     = { scenario = 'WORLD_HUMAN_STAND_MOBILE' },
     thermite = { dict = 'anim@heists@ornate_bank@thermal_charge', clip = 'thermal_charge', flag = 1 },
     ram      = { dict = 'missprologuemcs_1', clip = 'kick_down_player_zero', flag = 0 },
@@ -167,6 +176,7 @@ Config.Defaults = {
 --  security  : 'standard' (klucz/uprawnienia) | 'keypad' (PIN) | 'card' (karta) | 'bio' (odcisk palca)
 --  access    : jobs = { praca = minimalny_grade }, gangs = {...}, items = { 'klucz' }, public = true
 --  lockpick / hack : trudność 1–5 (0 = wyłączone)
+--  lockModel : 'euro' (wkładka w szyldzie) | 'rim' (rozeta) | 'padlock' (kłódka) – wygląd zamka w minigrze
 --  schedule  : { open = '08:00', close = '22:00' } – w tych godzinach drzwi są otwarte (czas serwera)
 -- ==========================================================================
 Config.Doors = {
@@ -192,7 +202,7 @@ Config.Doors = {
     {
         key = 'mrpd_cells', name = 'Cele – krata', group = 'MRPD', type = 'single',
         doors = { { model = `v_ilev_ph_cellgate`, coords = vec3(463.8, -992.6, 24.9) } },
-        access = { jobs = { police = 0 } }, lockpick = 5, alarm = true, autoLock = 6,
+        access = { jobs = { police = 0 } }, lockpick = 5, lockModel = 'padlock', alarm = true, autoLock = 6,
     },
     {
         key = 'sandy_pd', name = 'Posterunek Sandy Shores', group = 'BCSO', type = 'single',

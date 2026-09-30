@@ -73,6 +73,7 @@ DL.Audio = (() => {
     lockin: (t, o) => { tone(t, { f: 660, dur: 0.1, vol: 0.12, type: 'triangle' }, o); tone(t + 0.08, { f: 990, dur: 0.1, vol: 0.12, type: 'triangle' }, o); tone(t + 0.16, { f: 1320, dur: 0.18, vol: 0.12, type: 'triangle' }, o); },
     alarm: (t, o) => { for (let i = 0; i < 4; i++) tone(t + i * 0.3, { f: 880, f2: 660, type: 'sawtooth', dur: 0.28, vol: 0.07 }, o); },
     sizzle: (t, o, ms = 3000) => burst(t, { f: 5000, q: 0.5, dur: ms / 1000, vol: 0.25, type: 'highpass' }, o),
+    creak: (t, o) => { tone(t, { f: 95 + Math.random() * 45, f2: 70, type: 'sawtooth', dur: 0.2, vol: 0.07, q: 5 }, o); burst(t, { f: 2400 + Math.random() * 900, q: 10, dur: 0.07, vol: 0.14 }, o); },
     tick: (t, o) => tone(t, { f: 2000, dur: 0.015, vol: 0.05, type: 'square' }, o),
     open: (t, o) => { tone(t, { f: 520, dur: 0.1, vol: 0.08, type: 'triangle' }, o); tone(t + 0.06, { f: 780, dur: 0.14, vol: 0.08, type: 'triangle' }, o); },
   };
