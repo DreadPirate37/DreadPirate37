@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>dp-pojazdy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="toasts"></div>
+
+  <!-- pasek statusu przy minimapie -->
+  <div id="hud" class="hidden"></div>
+
+  <!-- panel sterowania -->
+  <div id="panel" class="hidden">
+    <header>
+      <div>
+        <div id="p-name">Pojazd</div>
+        <div id="p-plate" class="mono"></div>
+      </div>
+      <button class="x" id="p-close" title="Zamknij (ESC)">✕</button>
+    </header>
+
+    <section class="tele">
+      <div class="gauge">
+        <div class="speed"><span id="t-speed">0</span><small id="t-unit">km/h</small></div>
+        <div class="gear mono">GEAR <b id="t-gear">N</b></div>
+        <div class="bar rpm"><i id="t-rpm"></i></div>
+        <div class="bar pwr"><i id="t-pwr"></i><em id="t-tc">TC</em></div>
+      </div>
+      <div class="car" id="t-car">
+        <div class="body"></div>
+        <div class="axle front"></div>
+        <div class="axle rear"></div>
+      </div>
+    </section>
+
+    <div id="p-sections"></div>
+    <footer class="mono">F7 / ESC – zamknij · klawisze zmienisz w Ustawieniach → FiveM</footer>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
