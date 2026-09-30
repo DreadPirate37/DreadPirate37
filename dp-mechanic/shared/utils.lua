@@ -71,6 +71,48 @@ function Utils.NewVehicleData()
     }
 end
 
+-- dane „używanego” auta: przebieg + zużycie części wynikające z tego przebiegu
+-- (zakładamy, że poprzedni właściciel wymieniał części, gdy się zużyły – stan to reszta z cyklu)
+function Utils.UsedVehicleData(km)
+    local d = Utils.NewVehicleData()
+    km = math.max(0.0, tonumber(km) or 0.0)
+    d.km = km
+    local m = Config.Mileage or {}
+    if m.usedWear ~= false and km > 0 then
+        local serviced = math.random() < (m.serviceRandom or 0.6)
+        for id, p in pairs(Config.Wear.parts) do
+            local life = math.max(1000, p.lifeKm or 10000)
+            local used = (km % life) / life
+            -- serwisowane auto: płyny i filtry świeże (zużycie max 35%)
+            if serviced and (id == 'oil' or id == 'oil_filter' or id == 'air_filter' or id == 'coolant' or id == 'brake_fluid') then
+                used = used * 0.35
+            end
+            d.parts[id] = Utils.Round(Utils.Clamp(100.0 - used * 100.0 + (math.random() - 0.5) * 6.0, 3.0, 100.0), 1)
+        end
+        local life = (Config.TireCompounds.street and Config.TireCompounds.street.life) or 40000
+        for i = 1, 4 do
+            local used = ((km + i * 1500) % life) / life
+            d.tires[i] = { t = Utils.Round(Utils.Clamp(Config.TireNewTread * (1.0 - used), 1.0, Config.TireNewTread), 2), b = math.random(0, 3) * 5 }
+        end
+        d.align = (math.random() < 0.3) and Utils.Round((math.random() - 0.5) * 0.06, 3) or 0.0
+        local interval = Config.Wear.serviceInterval or 15000
+        d.svc.km = serviced and (km - (km % interval) + math.random(0, math.floor(interval * 0.3))) or math.max(0.0, km - interval * (1 + math.random()))
+        if d.svc.km > km then d.svc.km = km end
+    end
+    d.svc.km = d.svc.km or 0.0
+    return d
+end
+
+-- formatowanie przebiegu wg jednostki z configu
+function Utils.FormatKm(km)
+    local unit = (Config.Mileage and Config.Mileage.unit) or 'km'
+    local v = tonumber(km) or 0
+    if unit == 'mi' then v = v * 0.621371 end
+    local s = tostring(math.floor(v))
+    local r = s:reverse():gsub('(%d%d%d)', '%1 '):reverse()
+    return (r:gsub('^%s', '')) .. ' ' .. unit
+end
+
 -- uzupełnia brakujące pola (np. po dodaniu nowej części do configu)
 function Utils.FixVehicleData(d)
     local def = Utils.NewVehicleData()

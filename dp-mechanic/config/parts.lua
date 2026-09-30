@@ -135,6 +135,25 @@ Config.Wear = {
 }
 
 -- --------------------------------------------------------------------------
+--  PRZEBIEG (licznik kilometrów)
+--  Każde auto ma swój przebieg zapisany po tablicy rejestracyjnej. Rośnie tylko
+--  od realnej jazdy, napędza zużycie części i interwały przeglądów.
+-- --------------------------------------------------------------------------
+Config.Mileage = {
+    enabled = true,
+    hud = true,               -- licznik (odometr + trip) na HUD kierowcy
+    unit = 'km',              -- 'km' | 'mi' (tylko wyświetlanie; w bazie zawsze km)
+    tripKey = 'HOME',         -- klawisz zerowania licznika dziennego (trip)
+    ownedStart = 0,           -- przebieg startowy aut graczy (nowe z salonu)
+    -- auta bez historii, które nie należą do gracza (NPC, kradzione, służbowe):
+    -- losowy przebieg + zużycie części zgodne z tym przebiegiem (realizm „używanego auta”)
+    randomStart = { min = 15000, max = 240000 },
+    usedWear = true,          -- części w autach z losowym przebiegiem są odpowiednio zużyte
+    serviceRandom = 0.6,      -- szansa, że poprzedni właściciel robił serwis (świeże płyny/filtry)
+    adminAce = 'dpmechanic.admin', -- /dpm_setkm [tablica] [km] – korekta licznika (tylko admin)
+}
+
+-- --------------------------------------------------------------------------
 --  GEOMETRIA (zbieżność) – psuje się od uderzeń; auto ściąga na bok
 -- --------------------------------------------------------------------------
 Config.Alignment = {
