@@ -157,10 +157,17 @@ DZ.register('contractSpawn', function(src, groundZ)
     return { ok = true, net = c.net, plate = c.plate, msg = L('contract_spawned', c.label, c.plate) }
 end)
 
+-- auto ze zlecenia trafiło na przebitkę – zlecenie znika, ale auta nie kasujemy
+function DZ.DropContract(net)
+    for src, c in pairs(Active) do
+        if c.net == net then clearContract(src, false) end
+    end
+end
+
 -- wynik przy wstawieniu auta na stanowisko (wołane z server/chop.lua)
 function DZ.OnChopStart(src, veh, snap, job)
     local c = Active[src]
-    if not c or GetEntityModel(veh) ~= joaat(c.model) then return end
+    if not c or not DZ.SameModel(GetEntityModel(veh), joaat(c.model)) then return end
     if os.time() > c.deadline then return end
     local p = DZ.Profile(src)
     DZ.Earn(src, p, c.reward, 'zlecenie')
@@ -491,7 +498,7 @@ DZ.register('exportDeliver', function(src, netId, snap)
     local veh = vehFromNet(netId)
     if not veh or type(snap) ~= 'table' then return { ok = false } end
     if #(GetEntityCoords(veh).xy - e.point.xy) > 10.0 or not nearEnt(src, veh, 6.0) then return { ok = false, msg = L('too_far') } end
-    if tonumber(snap.model) ~= GetEntityModel(veh) then return { ok = false, msg = L('suspicious') } end
+    if not DZ.SameModel(snap.model, GetEntityModel(veh)) then return { ok = false, msg = L('suspicious') } end
     local cls = math.floor(DZ.num(snap.class, 0, 22))
     if cls ~= e.class then return { ok = false, msg = L('export_wrong', e.label) } end
     local plate = (GetVehicleNumberPlateText(veh) or ''):gsub('^%s+', ''):gsub('%s+$', '')

@@ -230,6 +230,7 @@ end
 local function startCrush(veh)
     D.busy = true
     local snap = D.Snapshot(veh)
+    if not NetworkGetEntityIsNetworked(veh) then NetworkRegisterEntityAsNetworked(veh) end
     local net = NetworkGetNetworkIdFromEntity(veh)
     leaveVehicle(veh)
     local r = D.Callback('crush', net, snap)

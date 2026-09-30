@@ -35,16 +35,25 @@ local function occupied(veh)
     return false
 end
 
+-- hash modelu bywa ze znakiem albo bez (klient vs serwer) – porównujemy modulo 2^32
+local function sameModel(a, b)
+    a, b = tonumber(a), tonumber(b)
+    return a ~= nil and b ~= nil and a % 4294967296 == b % 4294967296
+end
+DZ.SameModel = sameModel
+
 local function trimPlate(p) return (p or ''):gsub('^%s+', ''):gsub('%s+$', '') end
 
 local function publish(job)
     if not DoesEntityExist(job.veh) then return end
+    if Jobs[job.id] ~= job then return end
     local parts = {}
     for id, pt in pairs(job.parts) do parts[id] = { s = pt.s, c = pt.c } end
     job.ver = (job.ver or 0) + 1
     Entity(job.veh).state:set('dpChop', {
         id = job.id, mode = job.mode, lift = job.lift, moving = job.moving, label = job.label,
         flags = job.flags, parts = parts, ver = job.ver, ready = job.revinReady, shop = job.shop,
+        doors = job.snap.doors,
     }, true)
 end
 
@@ -114,7 +123,7 @@ local function snapSanitize(snap, veh)
     s.mods.turbo = m.turbo == true
     s.mods.xenon = m.xenon == true
     -- model musi się zgadzać z tym, co widzi serwer
-    if tonumber(snap.model) ~= GetEntityModel(veh) then return nil end
+    if not sameModel(snap.model, GetEntityModel(veh)) then return nil end
     return s
 end
 
@@ -217,7 +226,8 @@ DZ.register('revinStart', function(src, netId, snap) return startJob(src, netId,
 
 DZ.register('chopCancel', function(src, jobId)
     local job = Jobs[tonumber(jobId) or -1]
-    if not job then return { ok = false } end
+    if not job or not DZ.HasAccess(src) then return { ok = false } end
+    if job.moving then return { ok = false, msg = L('lift_busy') } end
     if not nearEntity(src, job.veh, 12.0) then return { ok = false, msg = L('too_far') } end
     for _, pt in pairs(job.parts) do
         if pt.s == 'busy' then return { ok = false, msg = L('lift_busy') } end
@@ -232,7 +242,7 @@ end)
 DZ.register('lift', function(src, jobId, level)
     local job = Jobs[tonumber(jobId) or -1]
     level = math.floor(DZ.num(level, 0, #Config.Bay.lift - 1))
-    if not job or job.mode ~= 'chop' then return { ok = false } end
+    if not job or job.mode ~= 'chop' or not DZ.HasAccess(src) then return { ok = false } end
     if job.moving then return { ok = false, msg = L('busy') } end
     if not nearEntity(src, job.veh, S.maxDistance) then return { ok = false, msg = L('too_far') } end
     for _, pt in pairs(job.parts) do
@@ -246,11 +256,12 @@ DZ.register('lift', function(src, jobId, level)
     CreateThread(function()
         local steps = 30
         for i = 1, steps do
-            if not DoesEntityExist(job.veh) then return end
+            if Jobs[job.id] ~= job or not DoesEntityExist(job.veh) then return end
             local z = job.base.z + from + (to - from) * (i / steps)
             SetEntityCoords(job.veh, job.base.x, job.base.y, z, false, false, false, false)
             Wait(math.floor(Config.Bay.liftTime / steps))
         end
+        if Jobs[job.id] ~= job then return end
         job.lift = level
         job.moving = nil
         job.touched = os.time()
@@ -279,6 +290,11 @@ DZ.register('partBegin', function(src, jobId, partId)
     local p = DZ.Profile(src)
     if def.tool and not DZ.HasTool(p, def.tool) then return { ok = false, msg = L('part_tool', Config.Tools[def.tool].label) } end
     if not def.op and DZ.WhFree(p) <= 0 then return { ok = false, msg = L('warehouse_full') } end
+    if def.shell then
+        for _, other in pairs(job.parts) do
+            if other.s == 'busy' then return { ok = false, msg = L('part_locked') } end
+        end
+    end
 
     local spec, remaining = {}, 0
     for i, f in ipairs(def.F) do
@@ -503,6 +519,7 @@ DZ.register('revinPaint', function(src, jobId, color, papers)
         plate = plate, name = job.snap.name, label = job.label,
     }, true)
     Entity(job.veh).state:set('dpTarget', nil, true)
+    if DZ.DropContract then DZ.DropContract(job.net) end
     endJob(job, false, false)
     DZ.AddXP(src, p, 40)
     DZ.Save(p)
@@ -686,4 +703,11 @@ end
 AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() then return end
     for _, job in pairs(Jobs) do endJob(job, false) end
+    for src, it in pairs(Carry) do
+        local p = DZ.Profile(src)
+        if p then
+            DZ.WhAdd(p, it)
+            DZ.Save(p)
+        end
+    end
 end)

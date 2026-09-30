@@ -10,11 +10,12 @@ local inspect = false
 local cancelAsk = 0
 local hudShown = false
 
+-- wymagania zależne od wyposażenia liczymy z drzwi zapisanych przez serwer przy starcie
 local function snapFor(veh, st)
-    local s = snaps[st.id]
-    if not s then
-        s = D.Snapshot(veh)
-        snaps[st.id] = s
+    local s = snaps[veh]
+    if not s or s.id ~= st.id then
+        s = { id = st.id, doors = st.doors or {} }
+        snaps[veh] = s
     end
     return s
 end
