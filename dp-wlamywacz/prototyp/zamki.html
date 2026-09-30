@@ -1,0 +1,1580 @@
+<title>Zamki dp-wlamywacz</title>
+<meta name="description" content="Prototyp minigier otwierania zamków dla dp-wlamywacz: wytrych w stylu Thief Simulatora, pin po pinie, sejf na stetoskop i panel alarmu z lampą UV.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Caveat:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Układ: nocny stół warsztatowy. Po lewej tablica zamków, w środku przekrój zamka na płótnie 4:3,
+   po prawej karta zamka, notatnik i log NUI → Lua. Pod spodem macierz: który zamek czym się otwiera.
+   Świadomie jeden, ciemny motyw: to ekran z gry, a nie dokument. */
+:root {
+  --night: #0d1216;
+  --pit: #080b0e;
+  --panel: #141b21;
+  --panel-2: #1a232a;
+  --line: #28343d;
+  --paper: #ece5d4;
+  --muted: #8f9ea8;
+  --brass: #d9aa4f;
+  --brass-dim: #8a6a2c;
+  --on-brass: #1b1407;
+  --steel: #b9c4cc;
+  --uv: #a77dff;
+  --ok: #78d39a;
+  --bad: #ec6a5f;
+  --warn: #eab94c;
+  --note-paper: #ebe3cf;
+  --note-rule: #c9d3e0;
+  --ink: #26306b;
+  --shade: rgba(8, 11, 14, .88);
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--night); color: var(--paper); }
+body { font-family: var(--font-body); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 24px 48px; }
+.wrap { max-width: 1340px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--brass); }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(42px, 6.4vw, 72px); line-height: .92; margin: 6px 0 10px; text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+.lede { max-width: 68ch; color: var(--muted); margin: 0; }
+.lede b { color: var(--paper); font-weight: 500; }
+
+button { font: inherit; color: inherit; }
+.btn { font-family: var(--font-body); font-size: 14px; font-weight: 500; background: var(--panel-2); border: 1px solid var(--line); color: var(--paper); padding: 8px 14px; border-radius: 4px; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; min-height: 38px; }
+.btn:hover { border-color: var(--brass-dim); }
+.btn:active, .btn.held { background: var(--line); }
+.btn.primary { background: var(--brass); border-color: var(--brass); color: var(--on-brass); }
+.btn[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
+.btn:focus-visible, .lock:focus-visible, .seg button:focus-visible, canvas:focus-visible, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+.bench { display: grid; grid-template-columns: 232px minmax(0, 1fr) 312px; gap: 18px; align-items: start; }
+.rack { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rack h2, .panel h2 { font-family: var(--font-display); font-weight: 600; font-size: 17px; letter-spacing: .08em; text-transform: uppercase; margin: 0; color: var(--steel); }
+.locks { display: flex; flex-direction: column; gap: 8px; }
+.lock { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 11px 13px; cursor: pointer; display: grid; gap: 2px; }
+.lock:hover { border-color: var(--brass-dim); }
+.lock .nm { font-family: var(--font-display); font-weight: 600; font-size: 21px; line-height: 1.05; letter-spacing: .02em; }
+.lock .id { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: .02em; }
+.lock .ds { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.lock[aria-pressed="true"] { border-color: var(--brass); background: var(--panel-2); }
+.lock[aria-pressed="true"] .nm { color: var(--brass); }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { flex: 1; background: var(--panel); border: 0; border-right: 1px solid var(--line); padding: 8px 0; cursor: pointer; font-family: var(--font-display); font-weight: 600; font-size: 19px; letter-spacing: .04em; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--brass); color: var(--on-brass); }
+.clsnote { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+.center { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stage { position: relative; width: 100%; max-width: 100%; aspect-ratio: 4 / 3; background: var(--pit); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.toast { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); max-width: calc(100% - 24px); background: var(--shade); border: 1px solid var(--line); color: var(--paper); font-size: 13.5px; padding: 6px 12px; border-radius: 4px; pointer-events: none; text-align: center; }
+.hud { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); align-items: center; }
+.hud b { color: var(--paper); font-weight: 500; font-variant-numeric: tabular-nums; }
+.meter { width: 86px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-inline: 4px; }
+.meter i { display: block; height: 100%; width: 0; background: var(--brass); }
+.meter.noise i { background: var(--warn); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls .grow { flex: 1 1 auto; }
+.controls label { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); }
+.controls input[type="range"] { width: 150px; accent-color: var(--brass); }
+.tools { display: inline-flex; }
+.tools .btn { border-radius: 0; margin-left: -1px; }
+.tools .btn:first-child { border-radius: 4px 0 0 4px; margin-left: 0; }
+.tools .btn:last-child { border-radius: 0 4px 4px 0; }
+.help { font-size: 13.5px; color: var(--muted); margin: 0; }
+kbd { font-family: var(--font-mono); font-size: 11.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 5px; color: var(--paper); background: var(--panel); white-space: nowrap; }
+
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+dl.card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 12px; margin: 0; font-size: 13.5px; }
+dl.card dt { color: var(--muted); }
+dl.card dd { margin: 0; font-family: var(--font-mono); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.sub { font-size: 12.5px; color: var(--muted); margin: 0; }
+.notebook { background-color: var(--note-paper); background-image: repeating-linear-gradient(to bottom, transparent 0 25px, var(--note-rule) 25px 26px); color: var(--ink); border-radius: 3px; padding: 6px 14px 8px 30px; min-height: 120px; position: relative; font-family: var(--font-hand); font-size: 21px; line-height: 26px; }
+.notebook::before { content: ""; position: absolute; left: 20px; top: 0; bottom: 0; width: 1px; background: var(--bad); opacity: .55; }
+.notebook ul { list-style: none; margin: 0; padding: 0; }
+.notebook li { overflow-wrap: anywhere; }
+.notebook .empty { opacity: .6; }
+.log { font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; max-height: 230px; overflow: auto; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.log li { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.log li b { font-weight: 500; }
+.log .out b { color: var(--brass); }
+.log .in b { color: var(--ok); }
+.log .rej b { color: var(--bad); }
+
+.matrix h2 { font-family: var(--font-display); font-weight: 800; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; margin: 0 0 4px; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; min-width: 920px; font-size: 13.5px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
+thead th { font-family: var(--font-mono); font-weight: 500; font-size: 11.5px; color: var(--steel); background: var(--panel); vertical-align: bottom; }
+thead th small { display: block; color: var(--muted); font-weight: 400; }
+tbody th { text-align: left; font-weight: 500; background: var(--panel); position: sticky; left: 0; }
+tbody th small { display: block; font-family: var(--font-mono); font-weight: 400; font-size: 11px; color: var(--muted); }
+td.y { color: var(--ok); } td.p { color: var(--warn); } td.n { color: var(--line); }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.legend span b { font-weight: 500; }
+footer { font-size: 13px; color: var(--muted); max-width: 90ch; }
+
+@media (max-width: 1140px) {
+  .bench { grid-template-columns: minmax(0, 1fr) 300px; }
+  .rack { grid-column: 1 / -1; }
+  .locks { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+}
+@media (max-width: 800px) {
+  .bench { grid-template-columns: minmax(0, 1fr); }
+  .controls input[type="range"] { width: 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">dp-wlamywacz · prototyp NUI</div>
+      <h1>Zamki i wytrychy</h1>
+      <p class="lede">Cztery minigry otwierania z katalogu pomysłów. Każdy zamek ma parametry wyliczone z <b>seeda serwera</b> (ZAM-21), dźwięk jest syntezowany na żywo, a do Lua trafiają tylko <b>start, hałas i wynik</b>, nigdy stan klatki.</p>
+    </div>
+    <button class="btn" id="mute" type="button" aria-pressed="false">Dźwięk: włączony</button>
+  </header>
+
+  <section class="bench">
+    <aside class="rack" aria-label="Wybór zamka">
+      <h2>Tablica zamków</h2>
+      <div class="locks" id="locks">
+        <button class="lock" type="button" data-g="ts" aria-pressed="true">
+          <span class="nm">Wytrych „punkt”</span>
+          <span class="id">WYT-01 · ZAM-01 · 🎮 Thief Simulator</span>
+          <span class="ds">Obracasz wytrych i szukasz punktu, w którym bęben daje się przekręcić.</span>
+        </button>
+        <button class="lock" type="button" data-g="spp" aria-pressed="false">
+          <span class="nm">Pin po pinie</span>
+          <span class="id">WYT-02 · 03 · 04 · ZAM-02</span>
+          <span class="ds">Przekrój wkładki: napinacz, hak, grabie, bump key i piny szpulkowe.</span>
+        </button>
+        <button class="lock" type="button" data-g="safe" aria-pressed="false">
+          <span class="nm">Sejf z tarczą</span>
+          <span class="id">WYT-10 · ZAM-10</span>
+          <span class="ds">Stetoskop, trzy liczby i szum pralki w tle.</span>
+        </button>
+        <button class="lock" type="button" data-g="pad" aria-pressed="false">
+          <span class="nm">Panel alarmu</span>
+          <span class="id">WYT-11 · ZAM-06 · ZAB-11</span>
+          <span class="ds">Odliczanie po wejściu, lampa UV i kod z notatek z domu.</span>
+        </button>
+      </div>
+      <h2>Klasa zamka</h2>
+      <div class="seg" id="cls" role="group" aria-label="Klasa zamka">
+        <button type="button" data-c="A" aria-pressed="false">A</button>
+        <button type="button" data-c="B" aria-pressed="true">B</button>
+        <button type="button" data-c="C" aria-pressed="false">C</button>
+      </div>
+      <p class="clsnote" id="clsnote"></p>
+    </aside>
+
+    <div class="center">
+      <div class="stage">
+        <canvas id="cv" tabindex="0" aria-label="Minigra otwierania zamka"></canvas>
+        <div class="toast" id="toast" hidden></div>
+      </div>
+      <div class="hud" id="hud">
+        <span id="h-stage">Etap <b>0/0</b></span>
+        <span id="h-pick">Wytrych<span class="meter"><i id="h-hp"></i></span><b id="h-spare">zapas 3</b></span>
+        <span>Hałas<span class="meter noise"><i id="h-noise"></i></span><b id="h-noisev">0</b></span>
+        <span>Czas <b id="h-time">0,0 s</b></span>
+      </div>
+      <div class="controls" id="ctl"></div>
+      <div class="controls">
+        <button class="btn" type="button" id="retry">Jeszcze raz · ten sam zamek <kbd>R</kbd></button>
+        <button class="btn" type="button" id="fresh">Nowy zamek · nowy seed <kbd>N</kbd></button>
+        <label><input type="checkbox" id="assist"> Tryb assist (WYT-24)</label>
+      </div>
+      <p class="help" id="help"></p>
+    </div>
+
+    <aside class="side">
+      <div class="panel">
+        <h2>Karta zamka</h2>
+        <dl class="card" id="card"></dl>
+        <p class="sub">Parametry i token przyjdą z serwera. Tu liczy je przeglądarka z tego samego seeda.</p>
+      </div>
+      <div class="panel">
+        <h2>Notatnik</h2>
+        <div class="notebook"><ul id="notes"></ul></div>
+        <p class="sub">Wpisy zostają dla tego samego zamka, więc druga próba idzie szybciej (WYT-26).</p>
+      </div>
+      <div class="panel">
+        <h2>NUI → Lua</h2>
+        <ul class="log" id="log"></ul>
+      </div>
+    </aside>
+  </section>
+
+  <section class="matrix">
+    <h2>Czym otworzysz który zamek</h2>
+    <p class="sub">Liczba pod metodą to hałas zgłaszany do systemu skradania (WYT-15). Zasięg słyszenia liczy graf pokoi.</p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Zamek</th>
+            <th scope="col">Wytrych TS<small>10</small></th>
+            <th scope="col">Hak (SPP)<small>8</small></th>
+            <th scope="col">Grabie<small>25</small></th>
+            <th scope="col">Bump key<small>40</small></th>
+            <th scope="col">Pick gun<small>35</small></th>
+            <th scope="col">El. wytrych<small>cicho</small></th>
+            <th scope="col">Shim<small>cicho</small></th>
+            <th scope="col">Wiertarka<small>80</small></th>
+            <th scope="col">Siłowo<small>60–90</small></th>
+            <th scope="col">Kod / UV / dekoder<small>0</small></th>
+            <th scope="col">Stetoskop<small>0</small></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Wkładka klasy A<small>ZAM-01 · 3 piny</small></th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Wkładka klasy B<small>ZAM-01 · 5 pinów</small></th><td class="y">✓</td><td class="y">✓</td><td class="p">~</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td><td class="y">✓</td><td class="p">~</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Wkładka klasy C<small>ZAM-01/02 · 7 pinów, szpulki</small></th><td class="y">✓</td><td class="y">✓</td><td class="n">—</td><td class="p">~</td><td class="p">~</td><td class="n">—</td><td class="n">—</td><td class="p">~</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Zamek dźwigniowy<small>ZAM-03 · wytrych dwubrodowy WYT-19</small></th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Kłódka tania<small>ZAM-04</small></th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="p">~</td><td class="y">✓</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Kłódka dyskowa<small>ZAM-04 · tylko szlifierka</small></th><td class="p">~</td><td class="p">~</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Panel alarmu / keypad<small>ZAM-06 · ZAB-11</small></th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="p">~</td><td class="y">✓</td><td class="n">—</td></tr>
+          <tr><th scope="row">Sejf z tarczą<small>ZAM-10</small></th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="p">~</td><td class="n">—</td><td class="y">✓</td></tr>
+          <tr><th scope="row">Sejf elektroniczny<small>ZAM-11 · blokada po 3 błędach</small></th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="p">~</td><td class="y">✓</td><td class="n">—</td></tr>
+          <tr><th scope="row">Sejf meblowy<small>ZAM-12 · kod 0000, magnes</small></th><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="n">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="legend"><span><b class="y">✓</b> działa</span><span><b>~</b> trudno albo tylko częściowo</span><span><b>—</b> nie działa</span></p>
+  </section>
+
+  <footer>Prototyp działa w całości w przeglądarce. W skrypcie ta sama minigra dostanie parametry i jednorazowy token z serwera, a wynik wróci callbackiem NUI. Pętla rysowania staje, gdy karta jest w tle, a tła scen rysują się raz do bufora i są tylko kopiowane.</footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ------------------------------------------------------------------ narzędzia */
+const W = 800, H = 600, TAU = Math.PI * 2, DEG = Math.PI / 180;
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const pad2 = (n) => String(n).padStart(2, '0');
+const circ = (a, b) => { const d = Math.abs(a - b) % 100; return Math.min(d, 100 - d); };
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const hex = (n) => (n >>> 0).toString(16).toUpperCase().padStart(8, '0');
+function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, TAU); }
+
+const css = getComputedStyle(document.documentElement);
+const tok = (n, f) => css.getPropertyValue(n).trim() || f;
+const COL = {
+  brass: tok('--brass', '#d9aa4f'), ok: tok('--ok', '#78d39a'), bad: tok('--bad', '#ec6a5f'), warn: tok('--warn', '#eab94c'),
+  uv: tok('--uv', '#a77dff'), paper: tok('--paper', '#ece5d4'), muted: tok('--muted', '#8f9ea8'), steel: tok('--steel', '#b9c4cc'),
+};
+const FD = '"Big Shoulders Display","Arial Narrow",Impact,sans-serif';
+const FM = '"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace';
+
+/* ------------------------------------------------------------------ płótno */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let scale = 1;
+function resize() {
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.max(1, Math.round(r.width * dpr));
+  cv.height = Math.max(1, Math.round(r.height * dpr));
+  scale = cv.width / W;
+}
+if (window.ResizeObserver) new ResizeObserver(resize).observe(cv); else window.addEventListener('resize', resize);
+resize();
+
+// Tła scen rysujemy raz do bufora i tylko je kopiujemy (odświeżenie przy zmianie rozmiaru).
+const bgCache = {};
+function bgLayer(c, key, paint) {
+  let e = bgCache[key];
+  if (!e || e.w !== cv.width || e.h !== cv.height) {
+    const off = document.createElement('canvas');
+    off.width = cv.width; off.height = cv.height;
+    const oc = off.getContext('2d');
+    oc.setTransform(scale, 0, 0, scale, 0, 0);
+    paint(oc);
+    e = bgCache[key] = { w: cv.width, h: cv.height, off };
+  }
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(e.off, 0, 0); c.restore();
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const k in bgCache) delete bgCache[k]; });
+
+function vignette(c) {
+  const g = c.createRadialGradient(W / 2, H / 2, 180, W / 2, H / 2, 520);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.6)');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+}
+function screw(c, x, y, a = 0.5) {
+  const g = c.createRadialGradient(x - 2, y - 2, 1, x, y, 8);
+  g.addColorStop(0, '#c3ccd2'); g.addColorStop(1, '#4b555c');
+  c.fillStyle = g; circle(c, x, y, 7.5); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.65)'; c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(x - 5 * Math.cos(a), y - 5 * Math.sin(a)); c.lineTo(x + 5 * Math.cos(a), y + 5 * Math.sin(a)); c.stroke();
+}
+
+/* ------------------------------------------------------------------ dźwięk (syntezowany, zero plików) */
+const Snd = {
+  ctx: null, out: null, muted: false, buf: null, bg: null, bgGain: null,
+  ensure() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { this.ctx = new AC(); } catch (e) { return null; }
+      this.out = this.ctx.createGain();
+      this.out.gain.value = this.muted ? 0 : 0.55;
+      this.out.connect(this.ctx.destination);
+      const len = this.ctx.sampleRate;
+      this.buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = this.buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    return this.ctx;
+  },
+  setMuted(m) { this.muted = m; if (this.out) this.out.gain.value = m ? 0 : 0.55; },
+  noise(dur, freq, q, vol, type = 'bandpass', pan = 0, delay = 0) {
+    const c = this.ctx; if (!c || this.muted) return;
+    const t = c.currentTime + delay;
+    const s = c.createBufferSource(); s.buffer = this.buf;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g);
+    let node = g;
+    if (pan && c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = pan; g.connect(p); node = p; }
+    node.connect(this.out);
+    s.start(t, Math.random() * 0.8); s.stop(t + dur + 0.02);
+  },
+  tone(freq, dur, type, vol, slide, delay = 0) {
+    const c = this.ctx; if (!c || this.muted) return;
+    const t = c.currentTime + delay;
+    const o = c.createOscillator(); o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    const g = c.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.out); o.start(t); o.stop(t + dur + 0.02);
+  },
+  click(v = 0.35) { this.noise(0.035, 3200, 4, v); },
+  pinSet() { this.noise(0.04, 2600, 6, 0.55); this.tone(1900, 0.03, 'triangle', 0.07); this.noise(0.03, 3400, 5, 0.3, 'bandpass', 0, 0.06); },
+  spring() { this.tone(480, 0.08, 'sine', 0.04, 820); },
+  scrape() { this.noise(0.07, 1300, 1.2, 0.08); },
+  rattle() { this.noise(0.025, 2300, 3, 0.12); },
+  creak(v) { this.noise(0.1, 380, 2, v, 'lowpass'); },
+  snap() { this.noise(0.12, 4200, 0.8, 0.85, 'highpass'); this.tone(320, 0.12, 'square', 0.07, 90); },
+  open() { this.noise(0.08, 900, 2, 0.5); this.noise(0.16, 280, 1.5, 0.65, 'lowpass', 0, 0.09); },
+  thunk(v, pan = 0) { this.noise(0.07, 230, 3, v, 'lowpass', pan); this.tone(150, 0.07, 'sine', v * 0.5, 90); },
+  tick(v) { this.noise(0.014, 5200, 5, v); },
+  beep(f = 1250, d = 0.07, v = 0.1) { this.tone(f, d, 'square', v); },
+  hit() { this.noise(0.05, 1800, 1, 0.75); this.tone(230, 0.05, 'square', 0.1, 120); },
+  siren() { for (let i = 0; i < 4; i++) this.tone(640, 0.36, 'sawtooth', 0.09, 1150, i * 0.38); },
+  bgNoise(level) {
+    const c = this.ctx; if (!c) return;
+    if (!this.bg) {
+      this.bg = c.createBufferSource(); this.bg.buffer = this.buf; this.bg.loop = true;
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 520;
+      this.bgGain = c.createGain(); this.bgGain.gain.value = 0;
+      this.bg.connect(f); f.connect(this.bgGain); this.bgGain.connect(this.out); this.bg.start();
+    }
+    this.bgGain.gain.setTargetAtTime(level * 0.16, c.currentTime, 0.08);
+  },
+};
+
+/* ------------------------------------------------------------------ stan, notatnik, log NUI → Lua */
+const S = { key: 'ts', cls: 'B', seed: 0, token: '', started: false, done: false, t0: 0, elapsed: 0, noiseLevel: 0, noiseTotal: 0, assist: false, result: null };
+const MIN_T = { A: 2, B: 4, C: 7 };   // minimalny sensowny czas, który sprawdza serwer (WYT-17)
+
+const NOTES = new Map();
+function notesFor() { const k = `${S.key}:${S.cls}:${S.seed}`; if (!NOTES.has(k)) NOTES.set(k, new Map()); return NOTES.get(k); }
+function note(k, text) { const m = notesFor(); if (m.get(k) === text) return; m.set(k, text); renderNotes(); }
+function unnote(k) { if (notesFor().delete(k)) renderNotes(); }
+function hasNote(k) { return notesFor().has(k); }
+const notesEl = $('#notes');
+function renderNotes() {
+  const m = notesFor();
+  notesEl.textContent = '';
+  if (!m.size) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Na razie pusto…'; notesEl.appendChild(li); return; }
+  for (const t of m.values()) { const li = document.createElement('li'); li.textContent = t; notesEl.appendChild(li); }
+}
+
+const logEl = $('#log');
+const Bus = {
+  pending: 0, src: '', acc: 0,
+  line(cls, head, data) {
+    const li = document.createElement('li'); li.className = cls;
+    const b = document.createElement('b'); b.textContent = head; li.appendChild(b);
+    if (data !== undefined) li.appendChild(document.createTextNode(' ' + (typeof data === 'string' ? data : JSON.stringify(data))));
+    logEl.prepend(li);
+    while (logEl.children.length > 40) logEl.lastChild.remove();
+  },
+  send(name, data) { this.line('out', '→ lua ' + name, data); },
+  server(msg, ok) { this.line(ok ? 'in' : 'rej', '← serwer', msg); },
+  // Hałas trafia do Lua w paczkach: najwyżej 4 razy na sekundę, tylko najgłośniejsze zdarzenie z okna.
+  noise(v, src) {
+    S.noiseLevel = Math.max(S.noiseLevel, v); S.noiseTotal += v;
+    if (v > this.pending) { this.pending = v; this.src = src; }
+  },
+  tick(dt) {
+    this.acc += dt;
+    if (this.acc >= 0.25) {
+      this.acc = 0;
+      if (this.pending > 0) { this.send('noise', { v: Math.round(this.pending), src: this.src }); this.pending = 0; }
+    }
+  },
+};
+
+function begin() {
+  if (S.started || S.done) return;
+  S.started = true; S.t0 = performance.now();
+  Bus.send('lock:start', { lock: G().lockId, cls: S.cls, seed: hex(S.seed), token: S.token });
+}
+function finish(ok, info) {
+  if (S.done) return;
+  S.done = true;
+  if (S.started) S.elapsed = (performance.now() - S.t0) / 1000;
+  S.result = Object.assign({ ok }, info);
+  const payload = Object.assign({ ok, t: +S.elapsed.toFixed(1), noise: Math.round(S.noiseTotal), token: S.token }, info.data || {});
+  Bus.send('lock:result', payload);
+  const min = MIN_T[S.cls], t = S.elapsed.toFixed(1).replace('.', ',');
+  setTimeout(() => {
+    if (ok && S.elapsed < min) Bus.server(`odrzucone: ${t} s to mniej niż minimum ${min} s dla klasy ${S.cls}`, false);
+    else if (ok) Bus.server(`przyjęte, token ${S.token} zużyty, czas ${t} s`, true);
+    else Bus.server(`porażka zapisana, heat +${info.heat || 1}`, true);
+  }, 320);
+}
+
+const toastEl = $('#toast'); let toastT = 0;
+function toast(msg, sec = 2.4) { toastEl.textContent = msg; toastEl.hidden = false; toastT = sec; }
+
+/* ================================================================== 1. WYTRYCH „PUNKT” (TS) */
+const TS = {
+  key: 'ts', lockId: 'ZAM-01',
+  P: { A: { stages: 1, tol: 14, fall: 55, dmg: 20 }, B: { stages: 2, tol: 9, fall: 45, dmg: 27 }, C: { stages: 3, tol: 5, fall: 36, dmg: 34 } },
+  init(rng, cls) {
+    this.p = this.P[cls];
+    this.sweet = [];
+    for (let i = 0; i < this.p.stages; i++) this.sweet.push(Math.round(16 + rng() * 148));
+    Object.assign(this, { stage: 0, rot: 0, angle: 90, keyT: false, ptrT: false, btnT: false, hp: 100, spare: 3, broken: 0, shake: 0, jit: 0, bindT: 0, creakT: 0, keyDir: 0, fine: false, open: 0 });
+  },
+  allowed() {
+    const d = Math.abs(this.angle - this.sweet[Math.min(this.stage, this.p.stages - 1)]);
+    return clamp(1 - Math.max(0, d - this.p.tol) / this.p.fall, 0, 1);
+  },
+  update(dt) {
+    if (S.done) { this.open = Math.min(1, this.open + dt * 2); return; }
+    if (this.keyDir) this.angle = clamp(this.angle + this.keyDir * (this.fine ? 22 : 75) * dt, 0, 180);
+    const tension = this.keyT || this.ptrT || this.btnT;
+    const a = this.allowed();
+    if (tension) {
+      begin();
+      if (this.rot < a - 0.002) {
+        this.rot = Math.min(a, this.rot + dt * 1.5);
+        this.shake *= 0.85;
+        if ((this.creakT -= dt) <= 0) { Snd.creak(0.04 + 0.08 * a); this.creakT = 0.12; }
+      } else if (a >= 0.999) {
+        this.stageDone();
+      } else {
+        // bęben stoi, a wytrych pracuje na siłę: drży i się zużywa
+        this.rot = Math.max(a, this.rot - dt * 0.8);
+        this.shake = Math.min(1, this.shake + dt * 5);
+        this.hp -= this.p.dmg * dt * (0.5 + 0.5 * (1 - a));
+        if ((this.bindT -= dt) <= 0) { Snd.rattle(); this.bindT = 0.08; }
+        if (this.hp <= 0) this.breakPick();
+      }
+    } else {
+      this.rot = Math.max(0, this.rot - dt * 3.2);
+      this.shake *= 0.8;
+    }
+    this.jit = (Math.random() - 0.5) * this.shake * 5;
+  },
+  stageDone() {
+    const s = this.sweet[this.stage];
+    this.stage++; this.rot = 0;
+    Snd.pinSet(); Bus.noise(10, 'hak');
+    note('s' + this.stage, `Etap ${this.stage}/${this.p.stages}: punkt ok. ${s}°`);
+    if (this.stage >= this.p.stages) {
+      Snd.open();
+      finish(true, { stamp: 'OTWARTE', sub: `Klasa ${S.cls} · pękło wytrychów: ${this.broken}`, data: { picksBroken: this.broken } });
+    } else toast(`Etap ${this.stage} z ${this.p.stages}. Szukaj kolejnego punktu.`);
+  },
+  breakPick() {
+    Snd.snap(); Bus.noise(20, 'pęknięcie');
+    this.broken++; this.rot = 0; this.shake = 0; this.keyT = this.ptrT = this.btnT = false;
+    if (this.spare > 0) {
+      this.spare--; this.hp = 100;
+      toast('Wytrych pękł. Wyjmujesz zapasowy.');
+      Bus.send('lock:pickBroken', { left: this.spare });
+    } else {
+      this.hp = 0;
+      finish(false, { stamp: 'BRAK WYTRYCHÓW', sub: 'Wszystkie wytrychy pękły', data: { picksBroken: this.broken }, heat: 1 });
+    }
+  },
+  aim(p) {
+    let a = Math.atan2(290 - p.y, p.x - 400) / DEG;
+    if (a < 0) a = p.x >= 400 ? 0 : 180;
+    this.angle = clamp(a, 0, 180);
+  },
+  down(p, e) { this.aim(p); if (e.pointerType === 'mouse') this.ptrT = true; },
+  move(p, e) { if (e.pointerType === 'mouse' || e.buttons) this.aim(p); },
+  up() { this.ptrT = false; },
+  wheel(dy) { this.angle = clamp(this.angle + (dy > 0 ? -2 : 2), 0, 180); },
+  key(e, down) {
+    const k = e.key.toLowerCase();
+    if (k === ' ') { this.keyT = down; return true; }
+    if (k === 'a' || k === 'arrowleft') { this.keyDir = down ? 1 : (this.keyDir === 1 ? 0 : this.keyDir); return true; }
+    if (k === 'd' || k === 'arrowright') { this.keyDir = down ? -1 : (this.keyDir === -1 ? 0 : this.keyDir); return true; }
+    if (k === 'shift') { this.fine = down; return true; }
+    return false;
+  },
+  blur() { this.keyT = this.ptrT = this.btnT = false; this.keyDir = 0; },
+  hud() { return { stage: `Etap <b>${Math.min(this.stage, this.p.stages)}/${this.p.stages}</b>`, hp: this.hp, spare: this.spare }; },
+  card() {
+    const p = this.p;
+    return [['Typ', 'Wkładka bębenkowa'], ['Klasa', S.cls], ['Etapy (punkty)', p.stages], ['Szerokość punktu', `±${p.tol}°`], ['Zanik chwytu', `${p.fall}°`],
+      ['Zużycie przy blokadzie', `${p.dmg} HP/s`], ['Wytrychy', '1 + 3 zapasowe'], ['Hałas', 'hak 10 · pęknięcie 20'], ['Seed', hex(S.seed)]];
+  },
+  help: 'Mysz obraca wytrych. Przytrzymaj <kbd>LPM</kbd>, <kbd>PPM</kbd> albo <kbd>Spację</kbd>, żeby napiąć. Na klawiaturze <kbd>A</kbd>/<kbd>D</kbd>, precyzyjnie z <kbd>Shift</kbd>. Gdy bęben staje, a wytrych drży, jesteś obok punktu: puść i przesuń wytrych.',
+  controls(root) {
+    const b = mkBtn('Napnij (przytrzymaj)', 'primary');
+    holdBtn(b, () => { this.btnT = true; }, () => { this.btnT = false; });
+    root.append(b);
+  },
+  draw(c) {
+    bgLayer(c, 'ts', paintDoor);
+    const cx = 400, cy = 290;
+    c.fillStyle = 'rgba(20,24,28,.75)'; c.font = `500 12px ${FM}`; c.textAlign = 'center';
+    c.fillText(`DP-SECURE · KL. ${S.cls}`, cx, 488);
+
+    // obudowa
+    let g = c.createRadialGradient(cx - 40, cy - 50, 20, cx, cy, 150);
+    g.addColorStop(0, '#cdd5db'); g.addColorStop(0.55, '#7c8891'); g.addColorStop(1, '#353f47');
+    c.fillStyle = g; circle(c, cx, cy, 150); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = 3; c.stroke();
+    c.fillStyle = '#20262b'; circle(c, cx, cy, 113); c.fill();
+
+    // bęben
+    const plugA = ((Math.min(this.stage, this.p.stages) + this.rot) / this.p.stages) * 90 * DEG;
+    g = c.createRadialGradient(cx - 35, cy - 40, 8, cx, cy, 110);
+    g.addColorStop(0, '#f6d992'); g.addColorStop(0.6, COL.brass); g.addColorStop(1, '#7c5c22');
+    c.fillStyle = g; circle(c, cx, cy, 106); c.fill();
+    c.strokeStyle = 'rgba(80,55,15,.5)'; c.lineWidth = 1.5; circle(c, cx, cy, 96); c.stroke();
+
+    c.save(); c.translate(cx, cy); c.rotate(plugA);
+    c.fillStyle = '#5f4516'; c.beginPath(); c.moveTo(-6, -104); c.lineTo(6, -104); c.lineTo(0, -92); c.closePath(); c.fill();
+    c.fillStyle = '#0b0d0f'; c.beginPath();
+    c.moveTo(-7, -64); c.lineTo(7, -64); c.lineTo(7, -30); c.lineTo(13, -18); c.lineTo(5, -4); c.lineTo(9, 18); c.lineTo(3, 30); c.lineTo(8, 64);
+    c.lineTo(-8, 64); c.lineTo(-8, 34); c.lineTo(-13, 22); c.lineTo(-5, 6); c.lineTo(-10, -14); c.lineTo(-4, -28); c.lineTo(-7, -40); c.closePath(); c.fill();
+    const tense = this.keyT || this.ptrT || this.btnT;
+    c.fillStyle = tense ? '#e6ebee' : '#9aa6ae';
+    rr(c, -4, 46, 8, 150, 2); c.fill();
+    rr(c, -4, 188, 122, 10, 3); c.fill();
+    c.restore();
+
+    // wytrych
+    const th = (this.angle + this.jit) * DEG;
+    c.save(); c.translate(cx, cy); c.rotate(-th);
+    c.fillStyle = '#d7dee3'; rr(c, -2, -2.5, 252, 5, 2.5); c.fill();
+    c.beginPath(); c.moveTo(-4, -2.5); c.quadraticCurveTo(-9, -11, -1, -12); c.lineTo(3, -2.5); c.closePath(); c.fill();
+    let handle = '#2a3036';
+    if (S.assist) { const a = this.allowed(); handle = `rgb(${Math.round(42 + (120 - 42) * a)},${Math.round(48 + (211 - 48) * a)},${Math.round(54 + (154 - 54) * a)})`; }
+    c.fillStyle = handle; rr(c, 196, -10, 110, 20, 7); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,.12)'; c.lineWidth = 1;
+    for (let x = 210; x < 300; x += 9) { c.beginPath(); c.moveTo(x, -8); c.lineTo(x, 8); c.stroke(); }
+    c.restore();
+
+    // etapy
+    const n = this.p.stages;
+    c.font = `500 11px ${FM}`; c.fillStyle = COL.muted; c.textAlign = 'center';
+    c.fillText('ETAPY', cx, 46);
+    for (let i = 0; i < n; i++) {
+      const x = cx - (n - 1) * 17 + i * 34;
+      circle(c, x, 66, 8);
+      if (i < this.stage) { c.fillStyle = COL.brass; c.fill(); } else { c.strokeStyle = COL.muted; c.lineWidth = 1.5; c.stroke(); }
+    }
+    if (!S.started) {
+      c.fillStyle = COL.muted; c.font = `500 13px ${FM}`;
+      c.fillText('ruszaj myszą · przytrzymaj przycisk, żeby napiąć', cx, 560);
+    }
+  },
+};
+
+function paintDoor(c) {
+  const g = c.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, '#16110c'); g.addColorStop(0.5, '#231a12'); g.addColorStop(1, '#140f0a');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = 2;
+  for (let x = 80; x < W; x += 160) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  const r = mulberry32(7);
+  c.strokeStyle = 'rgba(255,220,170,.04)'; c.lineWidth = 1;
+  for (let i = 0; i < 80; i++) {
+    const x = r() * W;
+    c.beginPath(); c.moveTo(x, 0); c.bezierCurveTo(x + r() * 30 - 15, H * 0.3, x + r() * 30 - 15, H * 0.7, x + r() * 20 - 10, H); c.stroke();
+  }
+  const pg = c.createLinearGradient(220, 0, 580, 0);
+  pg.addColorStop(0, '#343d44'); pg.addColorStop(0.45, '#68737c'); pg.addColorStop(1, '#2b3238');
+  c.fillStyle = pg; rr(c, 222, 76, 356, 440, 22); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 2; c.stroke();
+  screw(c, 400, 100, 0.4); screw(c, 400, 508, 1.1);
+  vignette(c);
+}
+
+/* ================================================================== 2. PIN PO PINIE (przekrój) */
+const SPP = {
+  key: 'spp', lockId: 'ZAM-02',
+  P: {
+    A: { n: 3, w: 12, tMin: 0.22, tMax: 0.78, spools: 0, bump: 0.9 },
+    B: { n: 5, w: 8, tMin: 0.33, tMax: 0.66, spools: 0, bump: 0.7 },
+    C: { n: 7, w: 6, tMin: 0.40, tMax: 0.60, spools: 2, bump: 0.55 },
+  },
+  SHEAR: 300, KT: 380, DWELL: 0.3,
+  init(rng, cls) {
+    const p = this.p = this.P[cls];
+    this.xs = []; this.pins = [];
+    for (let i = 0; i < p.n; i++) {
+      this.xs.push(p.n === 1 ? 440 : 262 + i * (360 / (p.n - 1)));
+      const k = Math.round(30 + rng() * 36);
+      this.pins.push({ k, need: 80 - k, lift: 0, state: 'down', dwell: 0, spool: false, inWin: false });
+    }
+    const idx = this.pins.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    this.order = idx.slice();
+    const sp = idx.slice().sort(() => 0).slice(0, p.spools);
+    for (const i of sp) this.pins[(i + 2) % p.n].spool = true;
+    Object.assign(this, {
+      tension: 0, tool: this.tool || 'hook', pickX: 720, pinIdx: -1, lift: 0, liftT: 0, pressing: false, dragY: 0, baseLift: 0,
+      hp: 100, spare: 3, broken: 0, lowT: 0, plugRot: 0, openA: 0, setOrder: [], known: [], prevX: 0, prevT: 0,
+      rakeNoiseT: 0, phase: 0, hitFlash: 0, keyUp: false, keyDown: false, tUp: false, tDown: false, scrapeT: 0, springT: 0,
+      taught: {},
+    });
+  },
+  binding() { for (const i of this.order) if (this.pins[i].state !== 'set') return i; return -1; },
+  setTension(v) { this.tension = clamp(v, 0, 1); const s = $('#tension'); if (s) s.value = Math.round(this.tension * 100); const o = $('#tval'); if (o) o.textContent = Math.round(this.tension * 100) + '%'; },
+  once(k, msg) { if (!this.taught[k]) { this.taught[k] = true; toast(msg, 3); } },
+  update(dt) {
+    this.phase = (this.phase + dt * 1.25) % 1;
+    this.hitFlash = Math.max(0, this.hitFlash - dt * 3);
+    if (S.done) { this.openA = Math.min(1, this.openA + dt * 1.6); this.relax(dt, -1); return; }
+    const p = this.p, t = this.tension;
+    if (this.tUp) this.setTension(t + dt * 0.45);
+    if (this.tDown) this.setTension(t - dt * 0.45);
+    if (this.keyUp) this.liftT = Math.min(95, this.liftT + 40 * dt);
+    if (this.keyDown) this.liftT = Math.max(0, this.liftT - 80 * dt);
+
+    // za słabe napięcie: ustawione piny opadają
+    if (t < p.tMin && this.pins.some((q) => q.state !== 'down')) {
+      this.lowT += dt;
+      if (t < 0.05 || this.lowT > 0.45) this.dropAll(t < 0.05 ? 'Napinacz puszczony. Piny opadły.' : 'Za słabe napięcie. Piny opadły.');
+    } else this.lowT = 0;
+
+    const b = this.binding(), i = this.pinIdx;
+    if (this.tool === 'hook' && i >= 0) {
+      const q = this.pins[i];
+      let speed = 170, cap = 999, frozen = false;
+      const binding = i === b && t >= p.tMin;
+      if (binding && q.state !== 'over' && q.state !== 'set') {
+        const light = q.state === 'false';
+        frozen = light ? t > p.tMin + 0.1 : t > p.tMax;
+        if (frozen) cap = q.lift; else speed = 30;
+      }
+      if (this.liftT > 1 && t < 0.05) this.once('t0', 'Najpierw napnij: kółko myszy, W/S albo suwak napięcia.');
+      const target = Math.min(this.liftT, cap);
+      const before = this.lift;
+      this.lift += clamp(target - this.lift, -240 * dt, speed * dt);
+      if (q.state === 'over') q.lift = Math.max(q.lift, this.lift);
+      else if (q.state === 'false') q.lift = Math.max(this.lift, q.need - 10);
+      else q.lift = this.lift;
+
+      if (frozen && this.liftT > q.lift + 3) {
+        this.hp -= 26 * dt;
+        if ((this.scrapeT -= dt) <= 0) { Snd.scrape(); this.scrapeT = 0.12; }
+        this.once('hi', q.state === 'false' ? 'Pin szpulkowy nie drgnie. Poluzuj trochę napięcie.' : 'Za mocne napięcie. Pin ani drgnie.');
+        if (this.hp <= 0) this.breakPick();
+      } else if (binding && (q.state === 'down' || q.state === 'false') && this.lift > before + 0.2) {
+        if ((this.scrapeT -= dt) <= 0) { Snd.scrape(); this.scrapeT = 0.16; }
+      } else if (!binding && q.state === 'down' && this.lift > 14 && before <= 14) {
+        Snd.spring();
+      }
+
+      if (binding && !frozen && (q.state === 'down' || q.state === 'false')) {
+        const need = q.need + (q.state === 'false' ? p.w + 6 : 0);
+        const inWin = q.lift >= need && q.lift <= need + p.w;
+        if (inWin && !q.inWin) Snd.tick(0.09);
+        q.inWin = inWin;
+        if (inWin) { q.dwell += dt; if (q.dwell >= this.DWELL) this.setPin(i); }
+        else { q.dwell = 0; if (q.lift > need + p.w + 0.5) this.overset(i); }
+      }
+    } else if (this.tool === 'hook') {
+      this.lift = Math.max(0, this.lift - 240 * dt);
+    }
+    this.relax(dt, this.tool === 'hook' ? i : -1);
+
+    // obrót bębna: każdy ustawiony pin daje trochę, fałszywe ustawienie dużo, a podnoszenie szpulki cofa bęben
+    let target = 0;
+    for (let j = 0; j < this.pins.length; j++) {
+      const q = this.pins[j];
+      if (q.state === 'set') target += 2.2;
+      if (q.state === 'false') {
+        target += 7;
+        if (j === i && this.tool === 'hook') target -= clamp((q.lift - (q.need - 10)) / (p.w + 16), 0, 1) * 6;
+      }
+    }
+    this.plugRot += (target - this.plugRot) * Math.min(1, dt * 10);
+    if (this.tool === 'rake') this.rakeNoiseT -= dt;
+  },
+  relax(dt, active) {
+    for (let j = 0; j < this.pins.length; j++) {
+      if (j === active) continue;
+      const q = this.pins[j];
+      if (q.state === 'over') continue;
+      const rest = q.state === 'false' ? q.need - 10 : 0;
+      q.lift = Math.max(rest, q.lift - 320 * dt);
+      q.dwell = 0; q.inWin = false;
+    }
+  },
+  setPin(i) {
+    const q = this.pins[i];
+    q.dwell = 0; q.inWin = false;
+    if (q.spool && q.state === 'down') {
+      q.state = 'false';
+      Snd.thunk(0.3); Snd.click(0.2); Bus.noise(8, this.tool);
+      note('sp' + i, `Pin ${i + 1}: szpulka, fałszywe ustawienie. Mniej napięcia i wyżej.`);
+      return;
+    }
+    q.state = 'set';
+    Snd.pinSet(); Bus.noise(this.tool === 'hook' ? 8 : 0, this.tool);
+    this.setOrder.push(i + 1);
+    if (this.setOrder.length > this.known.length) {
+      this.known = this.setOrder.slice();
+      note('order', 'Kolejność wiązania: ' + this.known.join(' → '));
+    }
+    if (this.pins.every((x) => x.state === 'set')) {
+      Snd.open();
+      finish(true, { stamp: 'OTWARTE', sub: `Kolejność ${this.setOrder.join('-')} · ${this.toolName()}`, data: { tool: this.tool, picksBroken: this.broken } });
+    }
+  },
+  overset(i) {
+    const q = this.pins[i];
+    q.state = 'over'; q.dwell = 0;
+    Snd.thunk(0.18);
+    this.once('ov', 'Pin przepchnięty za wysoko i się zablokował. Puść napięcie, żeby zacząć od nowa.');
+  },
+  dropAll(msg) {
+    let any = false;
+    for (const q of this.pins) { if (q.state !== 'down') any = true; q.state = 'down'; q.dwell = 0; q.inWin = false; }
+    this.setOrder = []; this.lowT = 0;
+    if (any) { for (let k = 0; k < 3; k++) setTimeout(() => Snd.tick(0.12), k * 45); toast(msg); }
+  },
+  breakPick() {
+    Snd.snap(); Bus.noise(20, 'pęknięcie');
+    this.broken++; this.liftT = 0; this.lift = 0; this.pressing = false;
+    this.dropAll('Wytrych pękł, piny opadły.');
+    if (this.spare > 0) { this.spare--; this.hp = 100; Bus.send('lock:pickBroken', { left: this.spare }); }
+    else { this.hp = 0; finish(false, { stamp: 'BRAK WYTRYCHÓW', sub: 'Wszystkie wytrychy pękły', data: { picksBroken: this.broken }, heat: 1 }); }
+  },
+  movePick(x) {
+    this.pickX = clamp(x, 200, 720);
+    let best = -1, bd = 24;
+    for (let i = 0; i < this.xs.length; i++) { const d = Math.abs(x - this.xs[i]); if (d < bd) { bd = d; best = i; } }
+    this.pinIdx = best;
+    if (best >= 0) this.pickX = this.xs[best];
+  },
+  rakeTo(x) {
+    const now = performance.now();
+    const dtm = Math.max(1, now - this.prevT) / 1000;
+    const vx = (x - this.prevX) / dtm;
+    const lo = Math.min(x, this.prevX), hi = Math.max(x, this.prevX);
+    const b = this.binding(), p = this.p, t = this.tension;
+    for (let j = 0; j < this.xs.length; j++) {
+      if (this.xs[j] < lo || this.xs[j] > hi) continue;
+      const q = this.pins[j];
+      const bounce = Math.random() * 70 * clamp(Math.abs(vx) / 900, 0.3, 1);
+      if (q.state !== 'over') q.lift = Math.max(q.lift, bounce);
+      if (j === b && t >= p.tMin && t <= p.tMax && q.state === 'down') {
+        if (bounce >= q.need && bounce <= q.need + p.w * 2.2) this.setPin(j);
+        else if (bounce > q.need + p.w * 2.2 + 12 && Math.random() < 0.3) this.overset(j);
+      }
+    }
+    if (hi - lo > 4 && this.rakeNoiseT <= 0) { Bus.noise(25, 'grabie'); Snd.rattle(); this.rakeNoiseT = 0.35; }
+    this.pickX = clamp(x, 200, 720); this.prevX = x; this.prevT = now;
+  },
+  strike() {
+    if (S.done) return;
+    begin();
+    const p = this.p, t = this.tension;
+    Snd.hit(); Bus.noise(40, 'bump'); this.hitFlash = 1;
+    for (const q of this.pins) if (q.state === 'down') q.lift = q.need + Math.random() * 26 - 10;
+    if (t < p.tMin * 0.8 || t > p.tMax + 0.15) { toast('Bez właściwego napięcia bump nic nie da.'); return; }
+    const pos = (Math.sin(this.phase * TAU) + 1) / 2;
+    const inWin = Math.abs(pos - 0.5) < 0.07;
+    const prob = p.bump * (inWin ? 1 : 0.25);
+    let falseSet = false;
+    for (let i = 0; i < this.pins.length; i++) {
+      const q = this.pins[i];
+      if (q.state !== 'down' || Math.random() >= prob) continue;
+      if (q.spool) { q.state = 'false'; falseSet = true; }
+      else { q.state = 'set'; this.setOrder.push(i + 1); }
+    }
+    Snd.pinSet();
+    if (this.pins.every((x) => x.state === 'set')) { Snd.open(); finish(true, { stamp: 'OTWARTE', sub: 'Bump key · jedno uderzenie', data: { tool: 'bump' } }); }
+    else if (falseSet) toast('Bęben przeskoczył i stanął. Szpulki trzeba dokończyć hakiem.', 3);
+    else toast(inWin ? 'Część pinów przeskoczyła. Uderz jeszcze raz.' : 'Uderzenie nie w rytm. Celuj w środek paska.');
+  },
+  toolName() { return { hook: 'hak', rake: 'grabie', bump: 'bump key' }[this.tool]; },
+  setTool(t) {
+    this.tool = t; this.liftT = 0; this.lift = 0; this.pressing = false;
+    document.querySelectorAll('[data-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === t)));
+    const sb = $('#strike'); if (sb) sb.hidden = t !== 'bump';
+    $('#help').innerHTML = this.helpFor();
+  },
+  down(p, e) {
+    begin();
+    if (this.tool === 'bump') { this.strike(); return; }
+    this.pressing = true; this.dragY = p.y; this.baseLift = this.tool === 'hook' ? this.liftT : 0;
+    if (this.tool === 'hook' && this.lift < 3) this.movePick(p.x);
+    this.prevX = p.x; this.prevT = performance.now();
+  },
+  move(p, e) {
+    if (this.tool === 'rake') {
+      if (this.pressing) this.rakeTo(p.x);
+      else if (e.pointerType === 'mouse') { this.pickX = clamp(p.x, 200, 720); this.prevX = p.x; this.prevT = performance.now(); }
+      return;
+    }
+    if (this.tool === 'hook') {
+      if (this.pressing) this.liftT = clamp(this.baseLift + (this.dragY - p.y) * 0.55, 0, 95);
+      else if (e.pointerType === 'mouse' && this.lift < 3) this.movePick(p.x);
+    }
+  },
+  up() { this.pressing = false; if (this.tool === 'hook') this.liftT = 0; },
+  wheel(dy) { this.setTension(this.tension + (dy > 0 ? -0.03 : 0.03)); },
+  key(e, down) {
+    const k = e.key.toLowerCase();
+    if (k === 'w') { this.tUp = down; return true; }
+    if (k === 's') { this.tDown = down; return true; }
+    if (k === 'arrowup') { this.keyUp = down; return true; }
+    if (k === 'arrowdown') { this.keyDown = down; return true; }
+    if (down && !e.repeat) {
+      if (k === '1') { this.setTool('hook'); return true; }
+      if (k === '2') { this.setTool('rake'); return true; }
+      if (k === '3') { this.setTool('bump'); return true; }
+      if (k === ' ' && this.tool === 'bump') { this.strike(); return true; }
+      if ((k === 'arrowleft' || k === 'arrowright') && this.tool === 'hook' && this.lift < 3) {
+        const n = this.xs.length;
+        let i = this.pinIdx < 0 ? (k === 'arrowleft' ? n - 1 : 0) : this.pinIdx + (k === 'arrowleft' ? -1 : 1);
+        i = clamp(i, 0, n - 1); this.movePick(this.xs[i]); begin(); return true;
+      }
+    }
+    return k === ' ' || k === 'arrowleft' || k === 'arrowright';
+  },
+  blur() { this.pressing = false; this.keyUp = this.keyDown = this.tUp = this.tDown = false; if (this.tool === 'hook') this.liftT = 0; },
+  hud() { const n = this.pins.filter((q) => q.state === 'set').length; return { stage: `Piny <b>${n}/${this.pins.length}</b>`, hp: this.hp, spare: this.spare }; },
+  card() {
+    const p = this.p;
+    return [['Typ', 'Wkładka bębenkowa'], ['Klasa', S.cls], ['Piny', p.n], ['Piny szpulkowe', p.spools], ['Okno ustawienia', `${p.w} px z 80`],
+      ['Idealne napięcie', S.assist ? `${Math.round(p.tMin * 100)}–${Math.round(p.tMax * 100)}%` : 'ukryte (assist)'], ['Kolejność wiązania', 'z seeda, ukryta'],
+      ['Bump bez szpulek', `${Math.round(p.bump * 100)}% na pin`], ['Hałas', 'hak 8 · grabie 25 · bump 40'], ['Seed', hex(S.seed)]];
+  },
+  helpFor() {
+    if (this.tool === 'rake') return 'Grabie: napnij, przytrzymaj <kbd>LPM</kbd> i szybko szarp w poziomie. Na klasie A to kilka sekund, na B czasem, na C z szpulkami nigdy.';
+    if (this.tool === 'bump') return 'Bump key: napnij i uderz (<kbd>LPM</kbd>, <kbd>Spacja</kbd> albo przycisk), kiedy znacznik jest na środku paska. Szpulki łapią fałszywe ustawienie i trzeba je dokończyć hakiem.';
+    return 'Hak: najpierw napnij (kółko myszy, <kbd>W</kbd>/<kbd>S</kbd> albo suwak). Najedź na pin i przeciągnij w górę z <kbd>LPM</kbd>. Pin, który stawia opór, wiąże: podnoś go powoli, aż usłyszysz tyknięcie, i przytrzymaj chwilę. Za wysoko i pin się zablokuje. Klawisze: <kbd>←</kbd>/<kbd>→</kbd> pin, <kbd>↑</kbd>/<kbd>↓</kbd> podnoszenie, <kbd>1</kbd>–<kbd>3</kbd> narzędzie.';
+  },
+  get help() { return this.helpFor(); },
+  controls(root) {
+    const tools = document.createElement('div'); tools.className = 'tools'; tools.setAttribute('role', 'group'); tools.setAttribute('aria-label', 'Narzędzie');
+    for (const [k, l] of [['hook', 'Hak'], ['rake', 'Grabie'], ['bump', 'Bump key']]) {
+      const b = mkBtn(l); b.dataset.tool = k; b.setAttribute('aria-pressed', String(this.tool === k));
+      b.addEventListener('click', () => { Snd.ensure(); this.setTool(k); });
+      tools.append(b);
+    }
+    const lab = document.createElement('label'); lab.htmlFor = 'tension';
+    lab.innerHTML = 'Napięcie <input type="range" id="tension" min="0" max="100" step="1" value="0"> <b id="tval">0%</b>';
+    lab.querySelector('input').addEventListener('input', (e) => { Snd.ensure(); begin(); this.setTension(e.target.value / 100); });
+    const rel = mkBtn('Puść napinacz'); rel.addEventListener('click', () => this.setTension(0));
+    const st = mkBtn('Uderz', 'primary'); st.id = 'strike'; st.hidden = this.tool !== 'bump';
+    st.addEventListener('click', () => { Snd.ensure(); this.strike(); });
+    root.append(tools, lab, rel, st);
+    this.setTension(this.tension);
+  },
+  draw(c) {
+    const p = this.p;
+    bgLayer(c, 'spp-' + S.cls, (b) => paintSpp(b, this));
+    const SH = this.SHEAR, KT = this.KT;
+    const open = this.openA;
+
+    // piny, sprężyny
+    for (let i = 0; i < this.pins.length; i++) {
+      const q = this.pins[i], x = this.xs[i];
+      const keyBottom = KT + 8 - q.lift, keyTop = keyBottom - (q.k + 8);
+      let drvBottom;
+      if (q.state === 'set' || open > 0) drvBottom = SH - 1;
+      else if (q.state === 'false') drvBottom = SH + 10;
+      else drvBottom = keyTop;
+      const drvTop = drvBottom - 40;
+      // sprężyna
+      c.strokeStyle = '#c3cbd1'; c.lineWidth = 2; c.beginPath();
+      const top = 160, seg = 9, span = drvTop - top;
+      c.moveTo(x, top);
+      for (let s = 1; s <= seg; s++) c.lineTo(x + (s % 2 ? 9 : -9) * (s === seg ? 0 : 1), top + span * s / seg);
+      c.stroke();
+      // pin górny (szpulkowy z talią)
+      const g = c.createLinearGradient(x - 12, 0, x + 12, 0);
+      g.addColorStop(0, '#8c979f'); g.addColorStop(0.45, '#e6ebee'); g.addColorStop(1, '#7d878f');
+      c.fillStyle = g;
+      if (q.spool) {
+        c.beginPath();
+        c.moveTo(x - 12, drvTop); c.lineTo(x + 12, drvTop); c.lineTo(x + 12, drvTop + 11); c.lineTo(x + 6, drvTop + 15);
+        c.lineTo(x + 6, drvTop + 25); c.lineTo(x + 12, drvTop + 29); c.lineTo(x + 12, drvBottom); c.lineTo(x - 12, drvBottom);
+        c.lineTo(x - 12, drvTop + 29); c.lineTo(x - 6, drvTop + 25); c.lineTo(x - 6, drvTop + 15); c.lineTo(x - 12, drvTop + 11); c.closePath(); c.fill();
+      } else { rr(c, x - 12, drvTop, 24, 40, 3); c.fill(); }
+      // pin dolny (klucza) z ostrym końcem
+      const kg = c.createLinearGradient(x - 12, 0, x + 12, 0);
+      kg.addColorStop(0, '#8a5a24'); kg.addColorStop(0.45, '#e2a55a'); kg.addColorStop(1, '#7b4f1f');
+      c.fillStyle = kg;
+      const ky = (q.state === 'set' || open > 0) ? KT + 8 - Math.min(q.lift, 4) - (q.k + 8) : keyTop;
+      c.beginPath(); c.moveTo(x - 12, ky + 3); c.quadraticCurveTo(x - 12, ky, x - 9, ky); c.lineTo(x + 9, ky); c.quadraticCurveTo(x + 12, ky, x + 12, ky + 3);
+      c.lineTo(x + 12, ky + q.k); c.lineTo(x, ky + q.k + 8); c.lineTo(x - 12, ky + q.k); c.closePath(); c.fill();
+      // znaczniki stanu
+      c.font = `500 11px ${FM}`; c.textAlign = 'center'; c.fillStyle = i === this.pinIdx && this.tool === 'hook' ? COL.brass : COL.muted;
+      c.fillText('P' + (i + 1), x, 132);
+      circle(c, x, 143, 4);
+      if (q.state === 'set') { c.fillStyle = COL.brass; c.fill(); }
+      else if (q.state === 'false') { c.strokeStyle = COL.brass; c.lineWidth = 1.5; c.stroke(); }
+      else if (q.state === 'over') { c.fillStyle = COL.bad; c.fill(); }
+      else { c.strokeStyle = 'rgba(143,158,168,.5)'; c.lineWidth = 1; c.stroke(); }
+      if (i === this.pinIdx && this.tool === 'hook') { c.strokeStyle = 'rgba(217,170,79,.55)'; c.lineWidth = 1.5; c.strokeRect(x - 16, 156, 32, KT - 156); }
+    }
+
+    // linia podziału
+    c.setLineDash([6, 5]); c.strokeStyle = 'rgba(246,217,146,.55)'; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(180, SH); c.lineTo(700, SH); c.stroke(); c.setLineDash([]);
+
+    // narzędzie
+    if (this.tool === 'bump') {
+      const bx = 160 + (this.hitFlash > 0 ? 8 * this.hitFlash : 0);
+      c.fillStyle = '#cfd6db'; c.beginPath(); c.moveTo(bx + 24, 384);
+      for (let k = 0; k < 12; k++) { const x0 = bx + 40 + k * 44; c.lineTo(x0, 384); c.lineTo(x0 + 16, 374); c.lineTo(x0 + 30, 384); }
+      c.lineTo(bx + 580, 384); c.lineTo(bx + 580, 410); c.lineTo(bx + 24, 410); c.closePath(); c.fill();
+      c.fillStyle = '#6d7880'; rr(c, bx + 580, 372, 70, 50, 14); c.fill();
+      if (this.hitFlash > 0) {
+        c.save(); c.translate(760, 395); c.rotate(-0.6 * this.hitFlash);
+        c.fillStyle = '#4a3a22'; rr(c, -4, -60, 8, 70, 3); c.fill();
+        c.fillStyle = '#9aa5ad'; rr(c, -18, -72, 36, 18, 3); c.fill();
+        c.restore();
+      }
+      // pasek rytmu
+      const pos = (Math.sin(this.phase * TAU) + 1) / 2;
+      c.fillStyle = 'rgba(255,255,255,.06)'; rr(c, 250, 80, 300, 14, 7); c.fill();
+      c.fillStyle = 'rgba(120,211,154,.35)'; rr(c, 250 + 300 * 0.43, 80, 300 * 0.14, 14, 4); c.fill();
+      c.fillStyle = COL.brass; circle(c, 250 + pos * 300, 87, 8); c.fill();
+      c.font = `500 11px ${FM}`; c.fillStyle = COL.muted; c.textAlign = 'center'; c.fillText('RYTM UDERZENIA', 400, 70);
+    } else if (this.tool === 'rake') {
+      const x = this.pickX;
+      c.fillStyle = '#dfe5e9'; c.beginPath(); c.moveTo(800, 404); c.lineTo(x + 8, 404);
+      const lift = this.pressing ? 6 : 0;
+      for (let k = 0; k < 3; k++) { const x0 = x - k * 26; c.quadraticCurveTo(x0 - 4, 386 - lift, x0 - 13, 398); c.quadraticCurveTo(x0 - 20, 386 - lift, x0 - 26, 398); }
+      c.lineTo(x - 80, 404); c.lineTo(x - 80, 408); c.lineTo(800, 408); c.closePath(); c.fill();
+      c.fillStyle = '#2a3036'; rr(c, 724, 394, 76, 22, 7); c.fill();
+    } else {
+      const x = this.pickX, tipY = KT + 8 - this.lift;
+      c.fillStyle = '#dfe5e9'; c.beginPath();
+      c.moveTo(800, 400); c.lineTo(x + 12, 400); c.quadraticCurveTo(x - 3, 400, x - 3, Math.min(396, tipY + 6));
+      c.lineTo(x + 2, tipY); c.lineTo(x + 7, tipY + 6); c.quadraticCurveTo(x + 7, 405, x + 16, 405); c.lineTo(800, 405); c.closePath(); c.fill();
+      c.fillStyle = '#2a3036'; rr(c, 724, 392, 76, 22, 7); c.fill();
+    }
+
+    // napinacz i jego wskaźnik
+    c.fillStyle = this.tension > 0.02 ? '#e6ebee' : '#9aa6ae';
+    rr(c, 182, 406, 46, 7, 2); c.fill(); rr(c, 176, 406, 8, 80, 2); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.07)'; rr(c, 138, 170, 16, 250, 4); c.fill();
+    if (S.assist) { c.fillStyle = 'rgba(120,211,154,.28)'; c.fillRect(138, 420 - 250 * p.tMax, 16, 250 * (p.tMax - p.tMin)); }
+    c.fillStyle = COL.brass; c.fillRect(138, 420 - 250 * this.tension, 16, 250 * this.tension);
+    c.font = `500 11px ${FM}`; c.fillStyle = COL.muted; c.textAlign = 'center'; c.fillText('NAPIĘCIE', 146, 440);
+
+    // widok z przodu
+    const ix = 736, iy = 76, a = (this.plugRot * 2.5 + open * 90) * DEG;
+    c.fillStyle = '#5c6770'; circle(c, ix, iy, 40); c.fill();
+    c.fillStyle = COL.brass; circle(c, ix, iy, 28); c.fill();
+    c.save(); c.translate(ix, iy); c.rotate(a); c.fillStyle = '#0b0d0f'; rr(c, -3, -18, 6, 36, 2); c.fill(); c.restore();
+    c.font = `500 10px ${FM}`; c.fillStyle = COL.muted; c.textAlign = 'center'; c.fillText('WIDOK Z PRZODU', ix, iy + 56);
+  },
+};
+
+function paintSpp(c, g) {
+  c.fillStyle = '#0b1014'; c.fillRect(0, 0, W, H);
+  c.lineWidth = 1;
+  for (let x = 0; x <= W; x += 20) { c.strokeStyle = x % 100 ? 'rgba(150,180,200,.04)' : 'rgba(150,180,200,.09)'; c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  for (let y = 0; y <= H; y += 20) { c.strokeStyle = y % 100 ? 'rgba(150,180,200,.04)' : 'rgba(150,180,200,.09)'; c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  let gr = c.createLinearGradient(0, 150, 0, 300); gr.addColorStop(0, '#7a868f'); gr.addColorStop(1, '#46515a');
+  c.fillStyle = gr; c.fillRect(180, 150, 520, 150);
+  gr = c.createLinearGradient(0, 300, 0, 430); gr.addColorStop(0, '#e7c170'); gr.addColorStop(1, '#8a6a2c');
+  c.fillStyle = gr; c.fillRect(180, 300, 520, 130);
+  c.fillStyle = '#0a0d10'; c.fillRect(180, 380, 540, 34);
+  for (const x of g.xs) {
+    c.fillStyle = '#20262b'; c.fillRect(x - 14, 156, 28, 144);
+    c.fillStyle = '#4a3913'; c.fillRect(x - 14, 300, 28, 80);
+  }
+  c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = 2; c.strokeRect(180, 150, 520, 280);
+  c.font = `500 11px ${FM}`; c.fillStyle = 'rgba(143,158,168,.85)'; c.textAlign = 'left';
+  c.fillText('OBUDOWA', 20, 230); c.fillText('LINIA PODZIAŁU', 20, 304); c.fillText('BĘBEN', 20, 345); c.fillText('KANAŁ KLUCZA', 20, 401);
+  c.fillText(`PRZEKRÓJ WKŁADKI · KL. ${S.cls}`, 20, 30);
+  vignette(c);
+}
+
+/* ================================================================== 3. SEJF Z TARCZĄ */
+const DIRS = [-1, 1, -1];     // -1 = w prawo (↻), +1 = w lewo (↺)
+const SAFE = {
+  key: 'safe', lockId: 'ZAM-10',
+  P: { A: { tol: 1, vol: 1, fake: 0, bg: 0.1 }, B: { tol: 0, vol: 0.7, fake: 1, bg: 0.3 }, C: { tol: 0, vol: 0.45, fake: 3, bg: 0.5 } },
+  CX: 400, CY: 236,
+  init(rng, cls) {
+    const p = this.p = this.P[cls];
+    this.combo = [];
+    while (this.combo.length < 3) { const n = Math.floor(rng() * 100); if (this.combo.every((c) => circ(c, n) > 8)) this.combo.push(n); }
+    this.fakes = [];
+    while (this.fakes.length < p.fake) { const n = Math.floor(rng() * 100); if (this.combo.every((c) => circ(c, n) > 4) && !this.fakes.includes(n)) this.fakes.push(n); }
+    Object.assign(this, {
+      num: Math.floor(rng() * 100), step: 0, marks: [], vib: 0, osc: new Float32Array(240), oscI: 0, spike: 0, bg: p.bg,
+      dragA: null, keyDir: 0, holdDir: 0, fine: false, tries: 0, open: 0, lastTick: 0,
+    });
+    for (let k = 1; k <= 3; k++) if (hasNote('m' + k)) unnote('m' + k);
+  },
+  turn(d) {
+    if (!d || S.done) return;
+    begin();
+    const from = this.num;
+    this.num = ((from + d) % 100 + 100) % 100;
+    if (Math.abs(d) > 50) return;
+    if (d > 0) { for (let m = Math.floor(from) + 1; m <= from + d; m++) this.cross(((m % 100) + 100) % 100, 1); }
+    else { for (let m = Math.ceil(from) - 1; m >= from + d; m--) this.cross(((m % 100) + 100) % 100, -1); }
+  },
+  cross(m, s) {
+    const now = performance.now();
+    if (now - this.lastTick > 22) { Snd.tick(0.02 + 0.04 * this.p.vol); this.lastTick = now; }
+    this.spike = Math.max(this.spike, 0.12);
+    if (this.step < 3 && s === DIRS[this.step] && circ(m, this.combo[this.step]) <= this.p.tol) {
+      Snd.thunk(0.4 * this.p.vol, -0.4); this.vib = 1; this.spike = 1;
+    } else if (this.fakes.includes(m)) {
+      Snd.thunk(0.26 * this.p.vol, -0.4); this.spike = Math.max(this.spike, 0.62);
+    }
+  },
+  update(dt) {
+    if (this.keyDir) this.turn(this.keyDir * (this.fine ? 3 : 12) * dt);
+    if (this.holdDir) this.turn(this.holdDir * 3 * dt);
+    this.vib *= Math.pow(0.02, dt);
+    for (let k = 0; k < 2; k++) {
+      const v = this.bg * (Math.random() * 2 - 1) * 0.4 + this.spike * (Math.random() < 0.5 ? 1 : -1) * (0.7 + Math.random() * 0.3);
+      this.osc[this.oscI] = v; this.oscI = (this.oscI + 1) % this.osc.length;
+      this.spike *= 0.55;
+    }
+    if (S.done && S.result && S.result.ok) this.open = Math.min(1, this.open + dt * 1.5);
+  },
+  mark() {
+    if (S.done) return;
+    if (this.step >= 3) { toast('Masz już 3 liczby. Pociągnij klamkę.'); return; }
+    begin();
+    const n = Math.round(this.num) % 100;
+    this.marks.push(n); this.step++;
+    Snd.click(0.25);
+    note('m' + this.step, `${this.step}. ${DIRS[this.step - 1] < 0 ? '↻ w prawo' : '↺ w lewo'} → ${pad2(n)}`);
+    if (this.step === 3) toast('Trzy liczby zapisane. Pociągnij klamkę.');
+  },
+  pull() {
+    if (S.done) return;
+    if (this.marks.length < 3) { toast('Najpierw znajdź i zapisz 3 liczby.'); return; }
+    begin();
+    const ok = this.marks.every((m, i) => circ(m, this.combo[i]) <= this.p.tol);
+    if (ok) {
+      Snd.open();
+      finish(true, { stamp: 'OTWARTE', sub: `Szyfr ${this.combo.map(pad2).join('-')} · prób: ${this.tries + 1}`, data: { tries: this.tries + 1 } });
+    } else {
+      this.tries++;
+      Snd.thunk(0.7); Bus.noise(15, 'klamka');
+      note('f' + this.tries, `✗ ${this.marks.map(pad2).join('-')}: nie ten szyfr`);
+      for (let k = 1; k <= 3; k++) unnote('m' + k);
+      this.marks = []; this.step = 0;
+      toast('Klamka nie puszcza. Zapadki się rozsypały, od nowa.');
+    }
+  },
+  setBg(v) { this.bg = v; Snd.bgNoise(v); const o = $('#bgval'); if (o) o.textContent = Math.round(v * 100) + '%'; },
+  down(p) {
+    const dx = p.x - this.CX, dy = p.y - this.CY;
+    if (dx * dx + dy * dy < 175 * 175) this.dragA = Math.atan2(dy, dx);
+  },
+  move(p) {
+    if (this.dragA === null) return;
+    const a = Math.atan2(p.y - this.CY, p.x - this.CX);
+    let da = a - this.dragA;
+    if (da > Math.PI) da -= TAU; if (da < -Math.PI) da += TAU;
+    this.dragA = a;
+    this.turn(-da / (3.6 * DEG));
+  },
+  up() { this.dragA = null; },
+  wheel(dy) { this.turn(dy > 0 ? -1 : 1); },
+  key(e, down) {
+    const k = e.key.toLowerCase();
+    if (k === 'arrowright' || k === 'd') { this.keyDir = down ? -1 : (this.keyDir === -1 ? 0 : this.keyDir); return true; }
+    if (k === 'arrowleft' || k === 'a') { this.keyDir = down ? 1 : (this.keyDir === 1 ? 0 : this.keyDir); return true; }
+    if (k === 'shift') { this.fine = down; return true; }
+    if (down && !e.repeat && (k === 'enter' || k === ' ')) { this.mark(); return true; }
+    if (down && !e.repeat && k === 'e') { this.pull(); return true; }
+    return k === ' ';
+  },
+  blur() { this.keyDir = 0; this.holdDir = 0; this.dragA = null; },
+  hud() { return { stage: `Liczby <b>${this.step}/3</b>`, extra: `Szum <b>${Math.round(this.bg * 100)}%</b>` }; },
+  card() {
+    const p = this.p;
+    return [['Typ', 'Sejf z zamkiem szyfrowym'], ['Klasa', S.cls], ['Liczby', '3 · kolejno ↻ ↺ ↻'], ['Tolerancja', p.tol ? `±${p.tol}` : 'dokładnie'],
+      ['Głośność zapadki', `${Math.round(p.vol * 100)}%`], ['Fałszywe zapadki', p.fake], ['Szum domyślny', `${Math.round(p.bg * 100)}%`], ['Hałas', 'klamka 15 · reszta 0'], ['Seed', hex(S.seed)]];
+  },
+  help: 'Kręć tarczą, przeciągając po niej, kółkiem myszy albo <kbd>←</kbd>/<kbd>→</kbd> (precyzyjnie z <kbd>Shift</kbd>). Zapadkę słychać tylko przy obrocie we właściwą stronę: najpierw ↻, potem ↺, potem ↻. Stetoskop pokazuje ją też jako szpilkę na wykresie. <kbd>Enter</kbd> zapisuje liczbę, <kbd>E</kbd> ciągnie klamkę.',
+  controls(root) {
+    const l = mkBtn('◀ ↺'); holdBtn(l, () => { begin(); this.holdDir = 1; }, () => { this.holdDir = 0; });
+    const r = mkBtn('↻ ▶'); holdBtn(r, () => { begin(); this.holdDir = -1; }, () => { this.holdDir = 0; });
+    const m = mkBtn('Zapisz liczbę', 'primary'); m.addEventListener('click', () => { Snd.ensure(); this.mark(); });
+    const pl = mkBtn('Pociągnij klamkę'); pl.addEventListener('click', () => { Snd.ensure(); this.pull(); });
+    const lab = document.createElement('label'); lab.htmlFor = 'bgn';
+    lab.innerHTML = `Szum (pralka) <input type="range" id="bgn" min="0" max="100" step="1" value="${Math.round(this.bg * 100)}"> <b id="bgval">${Math.round(this.bg * 100)}%</b>`;
+    lab.querySelector('input').addEventListener('input', (e) => { Snd.ensure(); this.setBg(e.target.value / 100); });
+    root.append(l, r, m, pl, lab);
+  },
+  draw(c) {
+    bgLayer(c, 'safe', paintSafe);
+    const cx = this.CX, cy = this.CY + (this.vib > 0.05 ? (Math.random() - 0.5) * 3 * this.vib : 0);
+    // tarcza
+    c.save(); c.translate(cx, cy); c.rotate(-this.num * 3.6 * DEG);
+    let g = c.createRadialGradient(-30, -40, 10, 0, 0, 140);
+    g.addColorStop(0, '#3a4248'); g.addColorStop(1, '#151a1e');
+    c.fillStyle = g; circle(c, 0, 0, 140); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 2; c.stroke();
+    for (let m = 0; m < 100; m++) {
+      const a = m * 3.6 * DEG, s = Math.sin(a), co = -Math.cos(a);
+      const len = m % 10 === 0 ? 16 : m % 5 === 0 ? 11 : 6;
+      c.strokeStyle = m % 10 === 0 ? '#f0ece2' : 'rgba(220,226,230,.7)'; c.lineWidth = m % 5 === 0 ? 2 : 1;
+      c.beginPath(); c.moveTo(s * 136, co * 136); c.lineTo(s * (136 - len), co * (136 - len)); c.stroke();
+      if (m % 10 === 0) {
+        c.save(); c.translate(s * 108, co * 108); c.rotate(a);
+        c.fillStyle = '#f0ece2'; c.font = `600 18px ${FM}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(String(m), 0, 0);
+        c.restore();
+      }
+    }
+    g = c.createRadialGradient(-18, -22, 4, 0, 0, 62);
+    g.addColorStop(0, '#d5dde2'); g.addColorStop(0.6, '#7b8790'); g.addColorStop(1, '#3a444b');
+    c.fillStyle = g; circle(c, 0, 0, 60); c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 2;
+    for (let k = 0; k < 40; k++) { const a = k / 40 * TAU; c.beginPath(); c.moveTo(Math.cos(a) * 52, Math.sin(a) * 52); c.lineTo(Math.cos(a) * 60, Math.sin(a) * 60); c.stroke(); }
+    c.restore();
+    c.textBaseline = 'alphabetic';
+
+    // wskaźnik i odczyt
+    c.fillStyle = COL.brass; c.beginPath(); c.moveTo(cx - 9, cy - 156); c.lineTo(cx + 9, cy - 156); c.lineTo(cx, cy - 142); c.closePath(); c.fill();
+    c.font = `500 14px ${FM}`; c.textAlign = 'center'; c.fillStyle = COL.paper;
+    c.fillText(pad2(Math.round(this.num) % 100), cx, cy - 164);
+
+    // klamka
+    c.save(); c.translate(598, 236); c.rotate(-this.open * 55 * DEG);
+    c.fillStyle = '#9aa6ae'; rr(c, -10, -10, 26, 110, 10); c.fill();
+    c.fillStyle = '#5a656d'; circle(c, 0, 0, 22); c.fill();
+    c.restore();
+
+    // krok
+    c.textAlign = 'left'; c.font = `600 16px ${FD}`; c.fillStyle = COL.brass;
+    const stepTxt = this.step < 3 ? `KROK ${this.step + 1}/3 · ${DIRS[this.step] < 0 ? '↻ W PRAWO' : '↺ W LEWO'}` : 'POCIĄGNIJ KLAMKĘ';
+    c.fillText(stepTxt, 176, 70);
+
+    // stetoskop
+    c.save(); rr(c, 176, 432, 448, 104, 8); c.clip();
+    c.fillStyle = '#07090b'; c.fillRect(176, 432, 448, 104);
+    c.strokeStyle = 'rgba(234,185,76,.12)'; c.lineWidth = 1;
+    for (let y = 446; y < 536; y += 18) { c.beginPath(); c.moveTo(176, y); c.lineTo(624, y); c.stroke(); }
+    c.strokeStyle = COL.warn; c.lineWidth = 1.6; c.beginPath();
+    const n = this.osc.length;
+    for (let k = 0; k < n; k++) {
+      const v = this.osc[(this.oscI + k) % n];
+      const x = 184 + (k / (n - 1)) * 432, y = 490 - clamp(v, -1, 1) * 38;
+      if (k) c.lineTo(x, y); else c.moveTo(x, y);
+    }
+    c.stroke(); c.restore();
+    c.font = `500 11px ${FM}`; c.fillStyle = COL.muted; c.textAlign = 'left';
+    c.fillText(`STETOSKOP · SZUM ${Math.round(this.bg * 100)}%`, 184, 426);
+  },
+};
+
+function paintSafe(c) {
+  c.fillStyle = '#1a2025'; c.fillRect(0, 0, W, H);
+  const g = c.createLinearGradient(150, 30, 650, 570);
+  g.addColorStop(0, '#56626b'); g.addColorStop(0.5, '#3a444c'); g.addColorStop(1, '#262d33');
+  c.fillStyle = g; rr(c, 150, 30, 500, 540, 16); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 3; c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 2; rr(c, 166, 46, 468, 508, 10); c.stroke();
+  for (let x = 176; x <= 624; x += 56) { screw(c, x, 50, x * 0.03); screw(c, x, 550, x * 0.05); }
+  c.fillStyle = '#20262b'; circle(c, 400, 236, 152); c.fill();
+  c.fillStyle = 'rgba(0,0,0,.35)'; circle(c, 598, 236, 34); c.fill();
+  c.font = `600 13px ${FM}`; c.fillStyle = 'rgba(236,229,212,.35)'; c.textAlign = 'center'; c.fillText('HARTMANN & SYN · 1974', 400, 408);
+  vignette(c);
+}
+
+/* ================================================================== 4. PANEL ALARMU Z LAMPĄ UV */
+const PAD = {
+  key: 'pad', lockId: 'ZAM-06',
+  P: { A: { len: 4, delay: 45, clues: 1 }, B: { len: 4, delay: 30, clues: 2 }, C: { len: 6, delay: 20, clues: 1 } },
+  KEYS: ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'],
+  keyRect(i) { const col = i % 3, row = Math.floor(i / 3); return { x: 281 + col * 84, y: 196 + row * 76, w: 70, h: 62 }; },
+  init(rng, cls) {
+    const p = this.p = this.P[cls];
+    const names = ['Zuzia', 'Kuba', 'Ola', 'Antek', 'Hania', 'Franek', 'Lena', 'Staś'];
+    const mk = () => ({ d: 1 + Math.floor(rng() * 28), m: 1 + Math.floor(rng() * 12), y: 2008 + Math.floor(rng() * 12) });
+    const ddmm = (x) => pad2(x.d) + pad2(x.m);
+    const distinct = (s) => new Set(s).size === s.length;
+    const setKey = (s) => [...new Set(s)].sort().join('');
+    let a; do { a = mk(); } while (p.len === 4 && !distinct(ddmm(a)));
+    const name = names[Math.floor(rng() * names.length)];
+    this.clues = [];
+    if (cls === 'C') {
+      this.code = ddmm(a) + pad2(a.y % 100);
+      this.clues.push(`Akt urodzenia w szufladzie: ${name}, ${pad2(a.d)}.${pad2(a.m)}.${a.y}`);
+    } else {
+      this.code = ddmm(a);
+      this.clues.push(`Ramka na komodzie: „${name}, ${pad2(a.d)}.${pad2(a.m)}.${a.y}”`);
+      if (p.clues === 2) {
+        let b; do { b = mk(); } while (!distinct(ddmm(b)) || setKey(ddmm(b)) === setKey(ddmm(a)));
+        this.clues.push(`Kalendarz w kuchni: „rocznica ślubu ${pad2(b.d)}.${pad2(b.m)}”`);
+        if (rng() < 0.5) this.code = ddmm(b);
+      }
+    }
+    this.smudge = {};
+    const counts = {};
+    for (const ch of this.code) counts[ch] = (counts[ch] || 0) + 1;
+    for (const k in counts) this.smudge[k] = { a: 0.55 + 0.2 * Math.min(2, counts[k]) + rng() * 0.1, rot: rng() * TAU, seed: rng() * 1000 };
+    this.smudge.OK = { a: 0.9, rot: rng() * TAU, seed: rng() * 1000 };
+    Object.assign(this, { state: 'door', left: p.delay, entry: '', tries: 0, uv: false, light: { x: 400, y: 330 }, beepT: 0, led: 0, flash: 0, pressed: -1, pressT: 0, downAt: null });
+    this.clues.forEach((t, i) => note('c' + i, t));
+    const u = $('#uvbtn'); if (u) u.setAttribute('aria-pressed', 'false');
+  },
+  enter() {
+    if (this.state !== 'door') return;
+    this.state = 'armed'; begin();
+    Bus.send('alarm:entryDelay', { s: this.p.delay });
+    Snd.beep(1500, 0.06, 0.1);
+    toast(`Masz ${this.p.delay} s na kod.`);
+  },
+  update(dt) {
+    this.pressT = Math.max(0, this.pressT - dt);
+    this.flash = Math.max(0, this.flash - dt * 2);
+    this.led = Math.max(0, this.led - dt * 4);
+    if (this.state === 'armed') {
+      this.left -= dt; this.beepT -= dt;
+      if (this.beepT <= 0) { Snd.beep(this.left < 10 ? 1900 : 1500, 0.05, 0.07); this.beepT = this.left < 10 ? 0.5 : 1; this.led = 1; }
+      if (this.left <= 0) { this.left = 0; this.alarm('Czas minął'); }
+    }
+  },
+  alarm(reason) {
+    this.state = 'alarm';
+    Snd.siren(); Bus.noise(95, 'syrena');
+    Bus.send('alarm:trigger', { reason });
+    finish(false, { stamp: 'ALARM', sub: reason, heat: 5 });
+  },
+  press(k) {
+    if (this.state === 'door') { this.enter(); return; }
+    if (this.state !== 'armed') return;
+    Snd.beep(1250, 0.06, 0.09);
+    this.pressed = this.KEYS.indexOf(k); this.pressT = 0.12;
+    if (k === 'C') this.entry = '';
+    else if (k === 'OK') this.submit();
+    else if (this.entry.length < this.p.len) this.entry += k;
+  },
+  submit() {
+    const len = this.p.len;
+    if (this.entry.length < len) { Snd.beep(600, 0.15, 0.09); toast(`Kod ma ${len} cyfr.`); return; }
+    if (this.entry === this.code) {
+      this.state = 'ok';
+      Snd.tone(1320, 0.1, 'square', 0.09); Snd.tone(1760, 0.16, 'square', 0.09, null, 0.11);
+      finish(true, { stamp: 'ROZBROJONY', sub: `Kod ${this.code} · zostało ${Math.ceil(this.left)} s`, data: { tries: this.tries + 1, left: +this.left.toFixed(1) } });
+      return;
+    }
+    this.tries++;
+    Snd.beep(420, 0.3, 0.12); this.flash = 1;
+    note('t' + this.tries, `Próba ${this.tries}: ${this.entry} ✗`);
+    this.entry = '';
+    if (this.tries >= 3) this.alarm('Trzy błędne kody');
+    else { const r = 3 - this.tries; toast(`Zły kod. ${r === 1 ? 'Została 1 próba' : 'Zostały 2 próby'}.`); }
+  },
+  hit(p) {
+    for (let i = 0; i < 12; i++) { const r = this.keyRect(i); if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) return this.KEYS[i]; }
+    return null;
+  },
+  toggleUV() { this.uv = !this.uv; Snd.click(0.15); const u = $('#uvbtn'); if (u) u.setAttribute('aria-pressed', String(this.uv)); },
+  down(p, e) {
+    this.light = p;
+    if (this.state === 'door') { this.enter(); return; }
+    if (e.pointerType === 'mouse') { const k = this.hit(p); if (k) this.press(k); }
+    else this.downAt = p;
+  },
+  move(p, e) { if (e.pointerType === 'mouse' || e.buttons) this.light = p; },
+  up(p, e) {
+    if (e.pointerType !== 'mouse' && this.downAt) {
+      const d = Math.hypot(p.x - this.downAt.x, p.y - this.downAt.y);
+      if (d < 12) { const k = this.hit(p); if (k) this.press(k); }
+    }
+    this.downAt = null;
+  },
+  key(e, down) {
+    if (!down || e.repeat) return false;
+    const k = e.key;
+    if (/^[0-9]$/.test(k)) { this.press(k); return true; }
+    if (k === 'Enter') { this.press('OK'); return true; }
+    if (k === 'Backspace' || k === 'Escape' || k === 'Delete') { this.press('C'); return true; }
+    if (k.toLowerCase() === 'u') { this.toggleUV(); return true; }
+    return false;
+  },
+  blur() {},
+  hud() { return { stage: `Próby <b>${this.tries}/3</b>`, extra: `Do syreny <b>${this.state === 'door' ? this.p.delay : Math.ceil(this.left)} s</b>` }; },
+  card() {
+    const p = this.p;
+    return [['Typ', 'Panel alarmu z klawiaturą'], ['Klasa', S.cls], ['Długość kodu', p.len], ['Opóźnienie wejścia', `${p.delay} s`], ['Próby', '3, potem syrena'],
+      ['Wskazówki z domu', p.clues], ['Ślady', 'starte klawisze pod UV'], ['Hałas', 'syrena 95'], ['Seed', hex(S.seed)]];
+  },
+  help: 'Kliknij, żeby wejść: panel zaczyna odliczać. Włącz lampę UV (<kbd>U</kbd>) i przesuń ją nad klawiszami: starte klawisze świecą. Kolejność cyfr podpowiadają notatki z domu. Kod wpisujesz klikając albo z klawiatury, <kbd>Enter</kbd> zatwierdza, <kbd>Backspace</kbd> czyści.',
+  controls(root) {
+    const u = mkBtn('Lampa UV', 'primary'); u.id = 'uvbtn'; u.setAttribute('aria-pressed', String(this.uv));
+    u.addEventListener('click', () => { Snd.ensure(); this.toggleUV(); });
+    const en = mkBtn('Wejdź do domu'); en.addEventListener('click', () => { Snd.ensure(); this.enter(); });
+    root.append(u, en);
+  },
+  draw(c) {
+    bgLayer(c, 'pad', paintPad);
+    // LCD
+    const armed = this.state === 'armed';
+    c.fillStyle = '#231d0d'; rr(c, 278, 92, 244, 76, 6); c.fill();
+    c.font = `500 15px ${FM}`; c.textAlign = 'left'; c.fillStyle = '#f0c35a';
+    let l1 = 'DRZWI OTWARTE', l2 = 'WEJŚCIE…';
+    if (armed) { l1 = `UZBROJONY  00:${pad2(Math.ceil(this.left))}`; l2 = ('*'.repeat(this.entry.length) + '_'.repeat(this.p.len - this.entry.length)).split('').join(' '); }
+    if (this.state === 'ok') { l1 = 'ROZBROJONY'; l2 = 'WITAMY W DOMU'; }
+    if (this.state === 'alarm') { l1 = 'ALARM!'; l2 = 'POWIADOMIONO'; }
+    c.fillText(l1, 292, 124); c.font = `500 20px ${FM}`; c.fillText(l2, 292, 154);
+    // dioda
+    let led = '#3a1612';
+    if (armed) led = this.led > 0.3 ? COL.bad : '#5a1d17';
+    if (this.state === 'ok') led = COL.ok;
+    if (this.state === 'alarm') led = (performance.now() / 250 | 0) % 2 ? COL.bad : '#5a1d17';
+    if (this.flash > 0) led = COL.bad;
+    c.fillStyle = led; circle(c, 500, 78, 6); c.fill();
+    // klawisze
+    for (let i = 0; i < 12; i++) {
+      const r = this.keyRect(i), k = this.KEYS[i];
+      const pr = i === this.pressed && this.pressT > 0;
+      c.fillStyle = pr ? '#aeb4ae' : '#d7dad3';
+      rr(c, r.x, r.y + (pr ? 2 : 0), r.w, r.h, 8); c.fill();
+      c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = k === 'OK' ? '#2f6b45' : k === 'C' ? '#8d3a33' : '#23282c';
+      c.font = `600 ${k.length > 1 ? 18 : 24}px ${FM}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(k === 'OK' ? '✓' : k, r.x + r.w / 2, r.y + r.h / 2 + (pr ? 2 : 0));
+      c.textBaseline = 'alphabetic';
+    }
+    // lampa UV
+    if (this.uv) {
+      const L = this.light;
+      const g = c.createRadialGradient(L.x, L.y, 20, L.x, L.y, 170);
+      g.addColorStop(0, 'rgba(70,24,140,.12)'); g.addColorStop(0.6, 'rgba(22,7,48,.6)'); g.addColorStop(1, 'rgba(6,2,16,.92)');
+      c.fillStyle = g; c.fillRect(0, 0, W, H);
+      c.save(); c.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 12; i++) {
+        const s = this.smudge[this.KEYS[i]]; if (!s) continue;
+        const r = this.keyRect(i), x = r.x + r.w / 2, y = r.y + r.h / 2;
+        const vis = s.a * clamp(1 - Math.hypot(x - L.x, y - L.y) / 170, 0, 1);
+        if (vis > 0.02) drawPrint(c, x, y, s, vis);
+      }
+      c.restore();
+      c.strokeStyle = 'rgba(167,125,255,.7)'; c.lineWidth = 1.5; circle(c, L.x, L.y, 10); c.stroke();
+    }
+    // drzwi przed wejściem
+    if (this.state === 'door' && !S.done) {
+      c.fillStyle = 'rgba(8,11,14,.72)'; c.fillRect(0, 0, W, H);
+      c.textAlign = 'center'; c.fillStyle = COL.paper; c.font = `800 44px ${FD}`;
+      c.fillText('DRZWI OTWARTE. PANEL PIKA.', 400, 270);
+      c.font = `500 15px ${FM}`; c.fillStyle = COL.muted;
+      c.fillText(`kliknij, żeby wejść · ruszy ${this.p.delay} s odliczania`, 400, 306);
+    }
+  },
+};
+
+function drawPrint(c, x, y, s, vis) {
+  c.save(); c.translate(x, y); c.rotate(s.rot);
+  c.strokeStyle = `rgba(214,190,255,${vis})`; c.lineWidth = 1.3;
+  c.shadowColor = `rgba(167,125,255,${vis})`; c.shadowBlur = 8;
+  const r = mulberry32(Math.floor(s.seed));
+  for (let k = 3; k <= 21; k += 3) {
+    const st = r() * TAU, len = 1.4 + r() * 2.6;
+    c.beginPath(); c.ellipse(0, 0, k * 1.05, k * 0.8, 0, st, st + len); c.stroke();
+    c.beginPath(); c.ellipse(0, 0, k * 1.05, k * 0.8, 0, st + len + 0.5, st + len + 0.5 + r() * 1.8); c.stroke();
+  }
+  c.restore();
+}
+
+function paintPad(c) {
+  c.fillStyle = '#2a3035'; c.fillRect(0, 0, W, H);
+  const r = mulberry32(11);
+  for (let i = 0; i < 1400; i++) { c.fillStyle = `rgba(${r() < 0.5 ? '255,255,255' : '0,0,0'},${0.02 + r() * 0.03})`; c.fillRect(r() * W, r() * H, 2, 2); }
+  const g = c.createLinearGradient(0, 0, 130, 0);
+  g.addColorStop(0, '#1d150e'); g.addColorStop(1, '#3a2a1b');
+  c.fillStyle = g; c.fillRect(0, 0, 118, H);
+  c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(118, 0, 12, H);
+  c.fillStyle = 'rgba(0,0,0,.4)'; rr(c, 262, 64, 288, 492, 18); c.fill();
+  const pg = c.createLinearGradient(250, 50, 550, 550);
+  pg.addColorStop(0, '#eeeeea'); pg.addColorStop(1, '#bdbfb9');
+  c.fillStyle = pg; rr(c, 252, 54, 296, 490, 18); c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.3)'; c.lineWidth = 2; c.stroke();
+  c.font = `600 12px ${FM}`; c.fillStyle = '#6b6f6a'; c.textAlign = 'left'; c.fillText('SECURIX 3000', 276, 82);
+  c.textAlign = 'center'; c.font = `500 11px ${FM}`; c.fillText('NIE WYŁĄCZAJ ZASILANIA', 400, 530);
+  vignette(c);
+}
+
+/* ================================================================== sterowanie całością */
+const GAMES = { ts: TS, spp: SPP, safe: SAFE, pad: PAD };
+const G = () => GAMES[S.key];
+const CLASS_NOTES = {
+  A: 'A: 3 piny, 1 etap wytrycha, głośne zapadki, 45 s na kod.',
+  B: 'B: 5 pinów, 2 etapy, jedna fałszywa zapadka, 30 s na kod.',
+  C: 'C: 7 pinów w tym 2 szpulki, 3 etapy, ciche zapadki, kod 6 cyfr w 20 s.',
+};
+
+function mkBtn(label, cls) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (cls ? ' ' + cls : ''); b.textContent = label; return b; }
+function holdBtn(el, on, off) {
+  const stop = () => { el.classList.remove('held'); off(); };
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); Snd.ensure(); try { el.setPointerCapture(e.pointerId); } catch (_) {} el.classList.add('held'); on(); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((t) => el.addEventListener(t, stop));
+  el.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); el.classList.add('held'); on(); } });
+  el.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') stop(); });
+}
+
+function renderCard() {
+  const dl = $('#card'); dl.textContent = '';
+  for (const [k, v] of G().card()) {
+    const dt = document.createElement('dt'); dt.textContent = k;
+    const dd = document.createElement('dd'); dd.textContent = String(v);
+    dl.append(dt, dd);
+  }
+}
+function setup(keepSeed) {
+  if (!keepSeed) S.seed = (Math.random() * 0xffffffff) >>> 0;
+  S.token = 't_' + ((Math.random() * 0xffffff) >>> 0).toString(16).padStart(6, '0');
+  Object.assign(S, { started: false, done: false, result: null, elapsed: 0, noiseTotal: 0 });
+  const rng = mulberry32(S.seed ^ hashStr(S.key + S.cls));
+  G().init(rng, S.cls);
+  const ctl = $('#ctl'); ctl.textContent = '';
+  G().controls(ctl);
+  $('#help').innerHTML = G().help;
+  $('#h-pick').hidden = G().hud().hp === undefined;
+  renderCard(); renderNotes();
+  Snd.bgNoise(S.key === 'safe' ? SAFE.bg : 0);
+  Bus.send('lock:open', { lock: G().lockId, cls: S.cls, seed: hex(S.seed) });
+  toastEl.hidden = true;
+}
+
+document.querySelectorAll('#locks .lock').forEach((b) => b.addEventListener('click', () => {
+  if (S.key === b.dataset.g) return;
+  G().blur();
+  S.key = b.dataset.g;
+  document.querySelectorAll('#locks .lock').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  Snd.ensure(); setup(false);
+}));
+document.querySelectorAll('#cls button').forEach((b) => b.addEventListener('click', () => {
+  if (S.cls === b.dataset.c) return;
+  S.cls = b.dataset.c;
+  document.querySelectorAll('#cls button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  $('#clsnote').textContent = CLASS_NOTES[S.cls];
+  Snd.ensure(); setup(false);
+}));
+$('#clsnote').textContent = CLASS_NOTES[S.cls];
+$('#retry').addEventListener('click', () => { Snd.ensure(); setup(true); });
+$('#fresh').addEventListener('click', () => { Snd.ensure(); setup(false); });
+$('#assist').addEventListener('change', (e) => { S.assist = e.target.checked; renderCard(); });
+$('#mute').addEventListener('click', (e) => {
+  Snd.setMuted(!Snd.muted);
+  e.currentTarget.setAttribute('aria-pressed', String(Snd.muted));
+  e.currentTarget.textContent = Snd.muted ? 'Dźwięk: wyłączony' : 'Dźwięk: włączony';
+});
+
+function ptr(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+cv.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  cv.focus({ preventScroll: true });
+  Snd.ensure(); if (S.key === 'safe') Snd.bgNoise(SAFE.bg);
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  if (!S.done) G().down(ptr(e), e);
+});
+cv.addEventListener('pointermove', (e) => { if (!S.done) G().move(ptr(e), e); });
+const upH = (e) => G().up(ptr(e), e);
+cv.addEventListener('pointerup', upH);
+cv.addEventListener('pointercancel', upH);
+cv.addEventListener('contextmenu', (e) => e.preventDefault());
+cv.addEventListener('wheel', (e) => { e.preventDefault(); if (!S.done && G().wheel) G().wheel(e.deltaY); }, { passive: false });
+cv.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (!e.repeat && (k === 'r' || k === 'n') && !e.ctrlKey && !e.metaKey) { Snd.ensure(); setup(k === 'r'); e.preventDefault(); return; }
+  Snd.ensure();
+  if (!S.done && G().key(e, true)) e.preventDefault();
+});
+cv.addEventListener('keyup', (e) => { if (G().key(e, false)) e.preventDefault(); });
+cv.addEventListener('blur', () => G().blur());
+
+/* ------------------------------------------------------------------ HUD: DOM zmieniany tylko przy zmianie wartości */
+const hudCache = {};
+function setHud(id, prop, val) { if (hudCache[id + prop] === val) return; hudCache[id + prop] = val; const el = document.getElementById(id); if (prop === 'html') el.innerHTML = val; else if (prop === 'text') el.textContent = val; else el.style[prop] = val; }
+function hud() {
+  const h = G().hud();
+  setHud('h-stage', 'html', h.stage + (h.extra ? ' &nbsp;·&nbsp; ' + h.extra : ''));
+  if (h.hp !== undefined) {
+    setHud('h-hp', 'width', Math.max(0, h.hp).toFixed(0) + '%');
+    setHud('h-hp', 'background', h.hp < 30 ? COL.bad : COL.brass);
+    setHud('h-spare', 'text', 'zapas ' + h.spare);
+  }
+  setHud('h-noise', 'width', Math.min(100, S.noiseLevel).toFixed(0) + '%');
+  setHud('h-noisev', 'text', String(Math.round(S.noiseLevel)));
+  const t = S.started ? (S.done ? S.elapsed : (performance.now() - S.t0) / 1000) : 0;
+  setHud('h-time', 'text', t.toFixed(1).replace('.', ',') + ' s');
+}
+
+function drawResult(c) {
+  const r = S.result; if (!r) return;
+  c.fillStyle = 'rgba(8,11,14,.58)'; c.fillRect(0, 0, W, H);
+  c.save(); c.translate(400, 292); c.rotate(-6 * DEG);
+  const col = r.ok ? COL.ok : COL.bad;
+  c.strokeStyle = col; c.lineWidth = 5; rr(c, -230, -66, 460, 132, 10); c.stroke();
+  c.lineWidth = 1.5; rr(c, -220, -56, 440, 112, 6); c.stroke();
+  c.fillStyle = col; c.textAlign = 'center'; c.font = `800 62px ${FD}`; c.fillText(r.stamp, 0, 14);
+  c.font = `500 15px ${FM}`; c.fillText(r.sub || '', 0, 44);
+  c.restore();
+  c.font = `500 13px ${FM}`; c.fillStyle = COL.paper; c.textAlign = 'center';
+  c.fillText(`czas ${S.elapsed.toFixed(1).replace('.', ',')} s · hałas ${Math.round(S.noiseTotal)} · R: jeszcze raz · N: nowy zamek`, 400, 420);
+}
+
+/* ------------------------------------------------------------------ pętla */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  G().update(dt);
+  S.noiseLevel = Math.max(0, S.noiseLevel - dt * 45);
+  Bus.tick(dt);
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.hidden = true; }
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  G().draw(ctx);
+  if (S.done) drawResult(ctx);
+  hud();
+  requestAnimationFrame(frame);
+}
+setup(false);
+requestAnimationFrame(frame);
+})();
+</script>
