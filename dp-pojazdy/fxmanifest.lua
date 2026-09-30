@@ -15,6 +15,7 @@ shared_scripts {
 client_scripts {
     'client/core.lua',
     'client/handling.lua',
+    'client/gearbox.lua',
     'client/extras.lua',
     'client/controls.lua',
     'client/nui.lua',

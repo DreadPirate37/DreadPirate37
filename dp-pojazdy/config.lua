@@ -48,6 +48,16 @@ Config.DisabledClasses = { [8] = true, [13] = true, [14] = true, [15] = true, [1
 --    antiroll fAntiRollBarForce         (stabilizatory)
 --    brake    fBrakeForce
 --  tc – domyślny poziom kontroli trakcji po wejściu w tryb ('on' | 'sport' | 'off')
+--
+--  gearbox – charakter skrzyni biegów (obroty 0.2 = wolne, 1.0 = odcięcie):
+--    up       poniżej tych obrotów skrzynia NIE wrzuci wyższego biegu (trzyma bieg do wysokich obrotów)
+--    down     poniżej tych obrotów redukuje bieg, żeby silnik był „w obrotach”
+--    downMax  redukcja tylko wtedy, gdy po niej obroty nie przekroczą tej wartości
+--    hold     po puszczeniu gazu bieg zostaje (hamowanie silnikiem, gotowość do wyjścia z zakrętu)
+--    kick     po przełączeniu w ten tryb od razu redukuje biegi, aż obroty dojdą do tej wartości
+--    blip     międzygaz przy redukcji (obroty skaczą od razu, słychać to)
+--    earlyUp  ECO: przy spokojnym gazie wrzuca wyższy bieg już od tych obrotów
+--    gap      [ms] minimalny odstęp między zmianami biegów wymuszonymi przez skrypt
 -- ==========================================================================
 Config.DefaultMode = 'comfort'
 Config.ModeOrder = { 'eco', 'comfort', 'sport', 'sportplus', 'drift' }
@@ -57,6 +67,7 @@ Config.Modes = {
         label = 'ECO', color = '#3ddc84', tc = 'on',
         h = { power = 0.80, inertia = 0.80, shift = 0.75, steer = 1.00, grip = 1.00, lowLoss = 0.85,
               susp = 0.95, damp = 0.92, antiroll = 0.95, brake = 1.00 },
+        gearbox = { earlyUp = 0.55, gap = 700 },
     },
     comfort = {
         label = 'KOMFORT', color = '#4ecdc4', tc = 'on',
@@ -66,17 +77,25 @@ Config.Modes = {
         label = 'SPORT', color = '#ffb020', tc = 'sport',
         h = { power = 1.07, inertia = 1.15, shift = 1.35, steer = 1.00, grip = 1.03, lowLoss = 1.00,
               susp = 1.12, damp = 1.15, antiroll = 1.20, brake = 1.05 },
+        gearbox = { up = 0.90, down = 0.55, downMax = 0.88, hold = true, kick = 0.80, blip = false, gap = 450 },
     },
     sportplus = {
         label = 'SPORT+', color = '#ff5c5c', tc = 'off',
         h = { power = 1.12, inertia = 1.30, shift = 1.70, steer = 1.02, grip = 1.05, lowLoss = 1.05,
               susp = 1.22, damp = 1.28, antiroll = 1.35, brake = 1.08 },
+        gearbox = { up = 0.97, down = 0.68, downMax = 0.93, hold = true, kick = 0.88, blip = true, gap = 300 },
     },
     drift = {
         label = 'DRIFT', color = '#c77dff', tc = 'off', forceDrive = 'RWD',
         h = { power = 1.10, inertia = 1.25, shift = 1.40, steer = 1.35, grip = 0.86, lowLoss = 1.35,
               susp = 1.10, damp = 1.10, antiroll = 1.40, brake = 1.00 },
+        gearbox = { up = 0.97, down = 0.65, downMax = 0.93, hold = true, kick = 0.85, blip = true, gap = 300 },
     },
+}
+
+Config.Gearbox = {
+    enabled = true,         -- false = skrzynia zawsze fabryczna (tryby zmieniają tylko handling)
+    minSpeed = 2.5,         -- [m/s] poniżej skrzynia działa fabrycznie (ruszanie)
 }
 
 -- ==========================================================================

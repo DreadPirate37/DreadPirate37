@@ -43,6 +43,8 @@ function A.mode(id)
     local patch = { mode = id }
     if m.tc then patch.tc = m.tc end
     commit(patch)
+    -- tryb sportowy łapie obroty od razu: kilka szybkich redukcji z międzygazem
+    if m.gearbox and m.gearbox.kick then Gearbox.Kick(m.gearbox.kick) end
     Car.Notify(L('mode_set', m.label))
     Car.Sound('mode')
 end

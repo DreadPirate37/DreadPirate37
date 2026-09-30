@@ -143,6 +143,7 @@ function H.Apply(veh, state, profile)
         if on then list[#list + 1] = w end
     end
     H.powered = list
+    Gearbox.Recalibrate()
 end
 
 function H.Restore()

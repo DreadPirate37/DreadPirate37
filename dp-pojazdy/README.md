@@ -46,15 +46,26 @@ Tryb zmienia handling auta **względem jego oryginału**: moc, szybkość wkręc
 zmiany biegów, twardość zawieszenia i stabilizatorów, przyczepność, hamulce i kąt skrętu.
 Każdy tryb ustawia też domyślny poziom TC.
 
-| Tryb | Charakter |
-|---|---|
-| ECO | mniej mocy, leniwy silnik, wolne i miękkie zmiany biegów, miękkie zawieszenie |
-| KOMFORT | fabryczny handling |
-| SPORT | +7% mocy, szybsze biegi, twardsze zawieszenie, TC SPORT |
-| SPORT+ | +12% mocy, bardzo szybkie biegi, najtwardsze zawieszenie, TC OFF |
-| DRIFT | większy kąt skrętu, mniej przyczepności, wymusza RWD (jeśli auto je ma), TC OFF |
+| Tryb | Charakter | Skrzynia |
+|---|---|---|
+| ECO | mniej mocy, leniwy silnik, miękkie zawieszenie | wyższy bieg już od ~55% obrotów przy spokojnym gazie |
+| KOMFORT | fabryczny handling | fabryczna |
+| SPORT | +7% mocy, szybsze biegi, twardsze zawieszenie, TC SPORT | trzyma bieg do 90% obrotów, redukuje poniżej 55% |
+| SPORT+ | +12% mocy, bardzo szybkie biegi, najtwardsze zawieszenie, TC OFF | trzyma bieg do 97%, redukuje poniżej 68%, z międzygazem |
+| DRIFT | większy kąt skrętu, mniej przyczepności, wymusza RWD (jeśli auto je ma), TC OFF | jak SPORT+ |
 
 Jakie tryby ma dane auto, ustalasz w profilu (klasa albo konkretny model).
+
+### Skrzynia biegów w trybach sportowych
+Fabryczna skrzynia GTA wrzuca wyższe biegi bardzo wcześnie. W SPORT, SPORT+ i DRIFT skrypt nadpisuje ją co klatkę:
+- **Kickdown od razu po przełączeniu trybu.** Skrzynia redukuje kilka biegów jeden po drugim
+  (z międzygazem), aż obroty dojdą do ~80% w SPORT albo ~88% w SPORT+. Wyraźnie słychać, jak silnik wchodzi na obroty.
+- **Bieg zostaje do wysokich obrotów**, także przy lekkim gazie.
+- **Wczesna redukcja.** Gdy obroty spadną (hamowanie przed zakrętem, spokojniejsza jazda), skrzynia
+  zbija bieg, więc silnik cały czas „siedzi” wysoko. W SPORT+ obroty trzymają się między ~70% a ~95%.
+- **Po puszczeniu gazu bieg zostaje.** Auto hamuje silnikiem i na wyjściu z zakrętu od razu ma moc.
+
+Wszystkie progi ustawisz w `Config.Modes[...].gearbox`. `Config.Gearbox.enabled = false` przywraca fabryczną skrzynię.
 
 ### Napęd FWD / RWD / AWD
 Działa tylko w autach, które mają to w profilu (`drive = { 'AWD', 'RWD' }` itp.). Przełączasz przy

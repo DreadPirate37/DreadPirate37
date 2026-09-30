@@ -71,6 +71,11 @@ local function driverFrame(veh, now, speed)
         end
     end
 
+    -- skrzynia biegów według trybu (trzymanie obrotów w SPORT, wczesne zmiany w ECO)
+    if Config.Gearbox.enabled and lc ~= 'ready' and now >= Car.switchUntil then
+        Gearbox.Frame(veh, now, speed, Config.Modes[Car.state.mode].gearbox)
+    end
+
     -- tempomat: gaz regulowany proporcjonalnie, gracz może dogazować, hamulec wyłącza
     local cruise = Car.cruise
     if cruise then
@@ -247,6 +252,7 @@ local function onEnter(veh, driver, keepBelt)
     if not Car.profile then return end -- klasa wyłączona: nic nie robimy
 
     Car.belt = keepBelt or false
+    Gearbox.Reset()
     if driver then
         Car.state = Car.Sanitize(Entity(veh).state.dpcar, Car.profile)
         Entity(veh).state:set('dpcar', Car.state, true)
