@@ -25,10 +25,6 @@ I build and run **FiveM** servers. I work across the whole GTA modding stack: ve
 
 ### Projects
 
-- **Gwint** – a Gwent-inspired card game running as an in-game phone app for FiveM
-- **CT5-V Blackwing** – a custom Cadillac built in Automation and ported to FiveM
-- **DCC-SCRIPTS bot** – a custom Discord bot for my script shop community
-
 ### Contact
 
 I sell FiveM scripts on the **DCC-SCRIPTS** Discord server. Message me on Discord – happy to help.
